@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberShield | Zero-Trust Enterprise Gateway</title>
+    
+    <!-- GOOGLE FONTS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#09090b">
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-split-card">
+            
+            <!-- LEFT SHOWCASE PANEL (DESKTOP) -->
+            <div class="login-showcase-panel">
+                <div>
+                    <div class="showcase-badge">
+                        <span class="pulse-dot"></span>
+                        CARTA Autonomous Defense Engine v2.5
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 12px;">
+                        <span style="font-size: 2.4rem;">🛡️</span>
+                        <div>
+                            <h1 style="font-size: 1.85rem; font-weight: 800; letter-spacing: -0.5px; background: linear-gradient(135deg, #ffffff 30%, #10b981 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                                CyberShield
+                            </h1>
+                            <p style="color: var(--text-secondary); font-size: 0.85rem;">
+                                Continuous Adaptive Risk & Trust Assessment (UEBA)
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="showcase-features">
+                        <div class="showcase-feature-item">
+                            <div class="showcase-feature-icon">⚡</div>
+                            <div>
+                                <div class="showcase-feature-title">Continuous Behavioral Telemetry</div>
+                                <div class="showcase-feature-desc">Haversine distance & velocity tracking dynamically adjusts session trust scores with 0.42ms latency.</div>
+                            </div>
+                        </div>
+
+                        <div class="showcase-feature-item">
+                            <div class="showcase-feature-icon">🪤</div>
+                            <div>
+                                <div class="showcase-feature-title">Stealth Cyber Deception Decoys</div>
+                                <div class="showcase-feature-desc">Integrated honeytoken canaries trap insider exfiltration attempts with immediate Zero-Trust quarantine.</div>
+                            </div>
+                        </div>
+
+                        <div class="showcase-feature-item">
+                            <div class="showcase-feature-icon">🔐</div>
+                            <div>
+                                <div class="showcase-feature-title">Adaptive Step-Up MFA Challenge</div>
+                                <div class="showcase-feature-desc">Dynamic 6-digit cryptographic OTP gate automatically engages whenever trust degrades below 60/100.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="showcase-footer">
+                    <span>NIST SP 800-207 & CARTA Architecture</span>
+                    <span class="live-clock" style="font-family: var(--font-mono); color: #10b981;">--:--:--</span>
+                </div>
+            </div>
+
+            <!-- RIGHT LOGIN FORM PANEL -->
+            <div class="login-form-panel">
+                <div style="margin-bottom: 24px;">
+                    <h2 style="font-size: 1.5rem; font-weight: 700; color: #ffffff; margin-bottom: 6px;">
+                        Institutional Access Portal
+                    </h2>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary);">
+                        Select a 1-click test persona or enter authorized credentials.
+                    </p>
+                </div>
+
+                <!-- 1-CLICK DEMO TEST PERSONAS -->
+                <div class="demo-tabs-container">
+                    <button type="button" class="demo-tab-btn active" id="demo-tab-student" onclick="fillDemoAccount('student')">
+                        <span>👨‍🎓</span> Student Portal
+                    </button>
+                    <button type="button" class="demo-tab-btn" id="demo-tab-admin" onclick="fillDemoAccount('admin')">
+                        <span>🛡️</span> SOC Analyst
+                    </button>
+                </div>
+
+                {% if success_msg %}
+                    <div class="message-success">
+                        ✅ {{ success_msg }}
+                    </div>
+                {% endif %}
+
+                {% if message %}
+                    <div class="message-alert">
+                        ⚠️ {{ message }}
+                    </div>
+                {% endif %}
+
+                <form method="POST">
+                    <!-- HIDDEN REAL-TIME TELEMETRY FIELDS -->
+                    <input type="hidden" name="real_location" id="real_location" value="Jammu">
+                    <input type="hidden" name="real_time" id="real_time">
+                    <input type="hidden" name="real_device" id="real_device">
+
+                    <div class="form-group">
+                        <label for="username">Identity / Username</label>
+                        <input
+                            type="text"
+                            id="username"
+                            name="username"
+                            value="student"
+                            placeholder="e.g. student or admin"
+                            required
+                            autocomplete="username"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <label for="password" style="margin-bottom: 0;">Password</label>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Encrypted SHA-256</span>
+                        </div>
+                        <div class="password-input-wrapper">
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                value="student123"
+                                placeholder="••••••••"
+                                required
+                                autocomplete="current-password"
+                            >
+                            <button type="button" class="password-toggle-btn" id="pwdToggleBtn" onclick="togglePasswordVisibility('password', 'pwdToggleBtn')" title="Toggle Password Visibility">
+                                👁️
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary" style="width: 100%; padding: 13px; font-weight: 700; margin-top: 6px;">
+                        🔐 Authenticate & Verify Session →
+                    </button>
+                </form>
+
+                <!-- LIVE INGESTED TELEMETRY CHIPS -->
+                <div class="telemetry-chip-container">
+                    <span class="telemetry-chip">
+                        <span class="pulse-dot"></span>
+                        <span id="chip_device">Detecting Device...</span>
+                    </span>
+                    <span class="telemetry-chip">
+                        <span>📍</span>
+                        <span id="chip_location">Detecting Location...</span>
+                    </span>
+                    <span class="telemetry-chip">
+                        <span>⏰</span>
+                        <span id="chip_time">Local Time</span>
+                    </span>
+                </div>
+
+                <div style="text-align: center; margin-top: 20px; display: flex; justify-content: space-between; align-items: center;">
+                    <a href="{{ url_for('register') }}" style="color: var(--text-muted); font-size: 0.82rem; text-decoration: none;">
+                        New account? <strong style="color: #10b981;">Register</strong>
+                    </a>
+                    <a href="{{ url_for('presentation') }}" style="color: #10b981; font-weight: 600; font-size: 0.82rem; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                        🎓 Viva Defense Mode →
+                    </a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- CLIENT SCRIPT -->
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

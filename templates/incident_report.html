@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberShield | Forensic Incident Report {{ report_id }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .incident-report-wrapper {
+            max-width: 1000px;
+            margin: 30px auto;
+            background: #121212;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+            color: #ffffff;
+        }
+
+        .dossier-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #10b981;
+            padding-bottom: 20px;
+            margin-bottom: 25px;
+        }
+
+        .dossier-badge {
+            display: inline-block;
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid #ef4444;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .dossier-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            background: #0a0a0a;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 18px;
+            margin-bottom: 30px;
+        }
+
+        .meta-item label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .meta-item value {
+            display: block;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #10b981;
+            margin-top: 4px;
+        }
+
+        .report-section {
+            margin-bottom: 35px;
+        }
+
+        .report-section h3 {
+            font-size: 1.2rem;
+            color: #ffffff;
+            border-left: 4px solid #10b981;
+            padding-left: 10px;
+            margin-bottom: 14px;
+        }
+
+        .threat-chain-box {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin-bottom: 12px;
+            color: #fca5a5;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .mitre-pill {
+            display: inline-block;
+            background: #10b981;
+            color: #000000;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .recommendation-list li {
+            margin-bottom: 8px;
+            color: #cbd5e1;
+            font-size: 0.92rem;
+        }
+
+        @media print {
+            body {
+                background: #ffffff !important;
+                color: #000000 !important;
+            }
+            .header, .action-toolbar {
+                display: none !important;
+            }
+            .incident-report-wrapper {
+                background: #ffffff !important;
+                color: #000000 !important;
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                max-width: 100% !important;
+            }
+            .dossier-header {
+                border-bottom: 2px solid #000000 !important;
+            }
+            .dossier-meta-grid {
+                background: #f8fafc !important;
+                border: 1px solid #cbd5e1 !important;
+            }
+            .meta-item value {
+                color: #000000 !important;
+            }
+            .report-section h3 {
+                color: #000000 !important;
+                border-left-color: #000000 !important;
+            }
+            table {
+                color: #000000 !important;
+                border: 1px solid #cbd5e1 !important;
+            }
+            th {
+                background: #f1f5f9 !important;
+                color: #000000 !important;
+            }
+            td {
+                border-bottom: 1px solid #e2e8f0 !important;
+                color: #000000 !important;
+            }
+            .threat-chain-box {
+                background: #fff1f2 !important;
+                color: #991b1b !important;
+                border-color: #fecdd3 !important;
+            }
+            .mitre-pill {
+                background: #10b981 !important;
+                color: #000000 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <div class="nav">
+            <div class="brand-logo">
+                <span style="font-size: 1.8rem;">🛡️</span>
+                <div>
+                    <h1>CyberShield SOC</h1>
+                    <p class="brand-tagline">Forensic Incident Investigation Dossier</p>
+                </div>
+            </div>
+            <div class="nav-links">
+                <a href="{{ url_for('admin') }}" class="btn btn-outline btn-sm">
+                    ← Return to SOC Console
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- ACTION TOOLBAR -->
+        <div class="action-toolbar" style="max-width: 1000px; margin: 20px auto 0; display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: var(--text-muted); font-size: 0.9rem;">Official CISO Forensic Report • Ready for Audit</span>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="window.print()" class="btn btn-warning btn-sm" style="display: flex; align-items: center; gap: 6px;">
+                    🖨️ Print / Save as PDF
+                </button>
+            </div>
+        </div>
+
+        <div class="incident-report-wrapper">
+            <!-- DOSSIER HEADER -->
+            <div class="dossier-header">
+                <div>
+                    <h2 style="margin: 0 0 6px; font-size: 1.6rem; color: #f8fafc;">
+                        🛡️ CYBERSHIELD ENTERPRISE FORENSIC DOSSIER
+                    </h2>
+                    <p style="margin: 0; color: #94a3b8; font-size: 0.9rem;">
+                        Autonomous Zero-Trust UEBA & Threat Correlation Incident Assessment
+                    </p>
+                </div>
+                <div style="text-align: right;">
+                    <span class="dossier-badge">TLP:AMBER / CONFIDENTIAL</span>
+                    <div style="font-family: monospace; font-size: 0.85rem; color: #10b981; margin-top: 6px;">
+                        {{ report_id }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- METADATA GRID -->
+            <div class="dossier-meta-grid">
+                <div class="meta-item">
+                    <label>Generated At</label>
+                    <value>{{ generated_at }}</value>
+                </div>
+                <div class="meta-item">
+                    <label>Lead SOC Analyst</label>
+                    <value>{{ session.get('username', 'SOC Administrator') }}</value>
+                </div>
+                <div class="meta-item">
+                    <label>Total Logged Events</label>
+                    <value>{{ stats.total_events }} Audited</value>
+                </div>
+                <div class="meta-item">
+                    <label>Critical Security Alerts</label>
+                    <value style="color: #ef4444;">{{ stats.critical_events }} High Severity</value>
+                </div>
+                <div class="meta-item">
+                    <label>Quarantined Accounts</label>
+                    <value style="color: #f87171;">{{ stats.locked_users }} Users Locked</value>
+                </div>
+                <div class="meta-item">
+                    <label>Enterprise Trust Index</label>
+                    <value style="color: #10b981;">{{ stats.avg_trust }} / 100</value>
+                </div>
+            </div>
+
+            <!-- EXECUTIVE SUMMARY -->
+            <div class="report-section">
+                <h3>1. Executive Threat Summary</h3>
+                <p style="line-height: 1.6; color: #cbd5e1; font-size: 0.95rem;">
+                    During continuous observation under the <strong>CyberShield Continuous Adaptive Risk and Trust Assessment (CARTA)</strong> engine,
+                    the security operations center recorded <strong>{{ stats.critical_events }} Critical</strong> and 
+                    <strong>{{ stats.suspicious_events }} Suspicious</strong> telemetry anomalies across registered endpoints.
+                    Autonomous defenses enforced dynamic Trust Score penalties and initiated automated quarantine protocols 
+                    on <strong>{{ stats.locked_users }}</strong> compromised or non-compliant identity vectors.
+                </p>
+            </div>
+
+            <!-- CORRELATED ATTACK CHAINS -->
+            <div class="report-section">
+                <h3>2. Correlated Multi-Stage Attack Chains (MITRE ATT&CK Aligned)</h3>
+                {% if detected_chains %}
+                    {% for chain in detected_chains %}
+                        <div class="threat-chain-box">
+                            <span style="font-size: 1.2rem;">⚠️</span>
+                            <div>
+                                <strong>{{ chain }}</strong>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p style="color: #94a3b8; font-size: 0.9rem;">
+                        No persistent multi-stage attack chains detected within the current sliding evaluation window.
+                    </p>
+                {% endif %}
+            </div>
+
+            <!-- QUARANTINED IDENTITIES -->
+            <div class="report-section">
+                <h3>3. Quarantined & High-Risk Identities</h3>
+                {% if locked_users %}
+                    <div class="table-container" style="margin-top: 10px;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Email Destination</th>
+                                    <th>Trust Score</th>
+                                    <th>Failed Attempts</th>
+                                    <th>Enforcement Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for u in locked_users %}
+                                    <tr>
+                                        <td><strong>{{ u.username }}</strong></td>
+                                        <td>{{ u.email }}</td>
+                                        <td style="color: #ef4444; font-weight: 700;">{{ u.trust_score }}/100</td>
+                                        <td>{{ u.failed_attempts }}</td>
+                                        <td><span class="status critical">⛔ Quarantined</span></td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p style="color: #22c55e; font-size: 0.9rem;">
+                        ✅ All user accounts are currently verified and operating within authorized baseline parameters.
+                    </p>
+                {% endif %}
+            </div>
+
+            <!-- FORENSIC EVIDENCE LOG TABLE -->
+            <div class="report-section">
+                <h3>4. Forensic Audit Trail (Sample of Recent Activities)</h3>
+                <div class="table-container" style="margin-top: 10px;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Identity</th>
+                                <th>Security Event & Telemetry</th>
+                                <th>MITRE ID</th>
+                                <th>Risk Score</th>
+                                <th>Tier</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in activities %}
+                                <tr>
+                                    <td style="font-size: 0.78rem; font-family: monospace; color: #94a3b8;">{{ a.timestamp }}</td>
+                                    <td><strong>{{ a.username }}</strong></td>
+                                    <td>{{ a.activity }}</td>
+                                    <td>
+                                        <span class="mitre-pill">{{ a.mitre_id }}</span>
+                                    </td>
+                                    <td style="font-weight: 700; color: {% if a.risk_score >= 60 %}#ef4444{% elif a.risk_score >= 30 %}#f59e0b{% else %}#22c55e{% endif %};">
+                                        {{ a.risk_score }}
+                                    </td>
+                                    <td>
+                                        <span class="status {{ a.threat_level.lower() }}">{{ a.threat_level }}</span>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- FORENSIC RECOMMENDATIONS -->
+            <div class="report-section" style="border-top: 1px solid var(--border-color); padding-top: 20px;">
+                <h3>5. Prescribed Containment & Remediation Actions</h3>
+                <ul class="recommendation-list">
+                    <li><strong>Quarantine Maintenance:</strong> Keep compromised accounts in isolated state until identity ownership is verified via out-of-band communication.</li>
+                    <li><strong>Adaptive Step-Up Verification:</strong> Enforce 6-digit Gmail SMTP OTP challenges across all sessions where Trust Score degrades below 60.</li>
+                    <li><strong>Honeytoken Integrity:</strong> Verify canary decoy traps in the file repository to trap active insider data theft attempts.</li>
+                    <li><strong>Geofence Recalibration:</strong> Update baseline profile cities for mobile personnel to minimize unnecessary Step-Up challenges.</li>
+                </ul>
+            </div>
+
+            <!-- SIGN-OFF FOOTER -->
+            <div style="border-top: 1px dashed #334155; padding-top: 16px; margin-top: 30px; display: flex; justify-content: space-between; font-size: 0.75rem; color: #64748b;">
+                <span>CyberShield CARTA Autonomous Defense Engine v2.5</span>
+                <span>Signature: ______________________________ (CISO / Lead Auditor)</span>
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>

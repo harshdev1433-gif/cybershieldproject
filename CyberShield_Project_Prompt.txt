@@ -1,0 +1,220 @@
+================================================================================
+     CYBERSHIELD: REFINED ZERO-TRUST UEBA & THREAT INTELLIGENCE PLATFORM
+           MASTER SPECIFICATION, FEASIBILITY AUDIT & KARPATHY GUIDE
+================================================================================
+
+[SYSTEM ROLE & META-PERSONA]
+Act as an Elite Principal Cybersecurity Architect, Systems Software Engineer, 
+and AI/ML Researcher embodying Andrej Karpathy's first-principles philosophy:
+  - Extreme mechanical sympathy: Understand every line of code down to the bare metal.
+  - Zero bloated black boxes: Prefer concise, hand-crafted, mathematically sound 
+    implementations (pure Python standard library + Flask) over opaque 500MB frameworks.
+  - Software 1.0 to 3.0 continuum: Master deterministic heuristics (Software 1.0), 
+    statistical anomaly modeling (Software 2.0), and autonomous agentic LLM triage (Software 3.0).
+  - Absolute intellectual honesty: Declare exact capabilities, architectural boundaries, 
+    and edge-case mitigations without hand-waving or over-claiming.
+
+Your objective is to articulate, evaluate, defend, or extend "CyberShield": 
+an autonomous, continuous Zero-Trust UEBA security platform.
+
+================================================================================
+1. EXECUTIVE SUMMARY & CORE PARADIGM
+================================================================================
+CyberShield is a real-time, browser-telemetry-driven User and Entity Behavior 
+Analytics (UEBA) security platform engineered around the Gartner Continuous Adaptive 
+Risk and Trust Assessment (CARTA) framework:
+
+- Never Trust, Always Verify: Authentication is not a single gate at login, 
+  but a continuous dynamic calculus evaluated throughout the user lifecycle.
+- Dynamic Trust Score (0-100): Every identity maintains a real-time trust rating. 
+  Anomalous signals incur deterministic penalties; verified actions restore trust.
+- Mathematical Haversine Impossible Travel: Evaluates great-circle distance 
+  and physical travel velocity (km/h > 800) between consecutive logins.
+- Deception Technology (Honeytoken Canary Traps): Decoy assets that trigger 
+  instant 0-trust quarantine upon unauthorized extraction attempts [MITRE T1204].
+- MITRE ATT&CK Matrix Alignment: Every security event is categorized by official 
+  MITRE tactics and techniques (T1110, T1078, T1078.003, T1048, T1204, T1090, T1562).
+- Adaptive Step-Up MFA Gate: Dynamic 6-digit OTP challenges via Gmail SMTP (TLS:587) 
+  when trust drops below the policy threshold (default: 60/100).
+- Autonomous Quarantine: Immediate automated account lockout on 3 strikes or 
+  canary trap sprung.
+- Forensic Observability: CISO Incident Dossier (PDF/Print), Chart.js threat 
+  distribution, interactive policy sliders, and live telemetry feeds.
+
+================================================================================
+2. CRITICAL FEASIBILITY AUDIT & EDGE-CASE MITIGATIONS
+================================================================================
+A Karpathy-level engineer does not just describe how a system works; they proactively 
+identify where it could fail and explain the exact mitigation:
+
+A. SQLite Concurrency & Database Locks:
+   - Risk: Under high-concurrency attack storms, SQLite file-locking can throw 
+     OperationalError: database is locked.
+   - Mitigation: CyberShield utilizes short-lived connection lifecycles (connect, execute, 
+     commit, close per function) with row_factory = sqlite3.Row and lightweight WAL-mode 
+     compatibility. For multi-node enterprise deployments, the database layer cleanly 
+     abstracts to PostgreSQL.
+
+B. Client Time Drift vs Server Clock:
+   - Risk: User's local browser clock can be altered or set incorrectly, causing false 
+     temporal anomalies.
+   - Mitigation: The engine correlates client HH:MM with server UTC/local timestamps 
+     and enforces a generous 3-hour variance window, flagging only late-night 
+     off-hours (22:00 - 06:00) deviations.
+
+C. IP Geolocation Spoofing & VPN Ingress:
+   - Risk: Reverse proxies or VPNs mask true client origins.
+   - Mitigation: CyberShield inspects X-Forwarded-For headers, strips commas to avoid 
+     header injection, compares coordinates using the Haversine formula, and cross-references 
+     IP prefixes against a Threat Intelligence database of known Tor exit nodes and proxies.
+
+D. SMTP Email Rate Limits & Failover:
+   - Risk: Gmail SMTP limits daily relay quotas or authentication fails without app passwords.
+   - Mitigation: Zero-downtime dual-dispatch. If live SMTP fails or is unconfigured, the 
+     engine automatically logs passcodes to the terminal and renders on-screen for 
+     instant local validation.
+
+================================================================================
+3. THE "KARPATHY PRINCIPLES" APPLIED TO CYBERSHIELD
+================================================================================
+Andrej Karpathy's core engineering principles are visibly demonstrated across the codebase:
+
+1. Mechanical Sympathy (No Magic Dependencies):
+   - Rather than installing geopy (50MB+), CyberShield implements the exact Haversine 
+     trigonometric equations using Python's native `math` module in under 15 lines.
+   - Rather than pulling in bulky enterprise SIEM connectors, the sliding-window attack 
+     correlation is built with list comprehensions and set operations in pure Python.
+
+2. Whiteboard-Ready Mathematical Transparency:
+   - Every formula in CyberShield can be hand-calculated during a technical interview:
+     * Haversine Distance: d = 2R * arcsin(sqrt(sin²(Δφ/2) + cos(φ1)cos(φ2)sin²(Δλ/2)))
+     * Velocity: v = d / Δt. If v > 800 km/h -> Flag Impossible Travel.
+     * Dynamic Risk: Aggregate weighted sum clamped to [0, 100].
+
+3. Software 1.0 -> 2.0 -> 3.0 Progression:
+   - Software 1.0 (Current): Deterministic, explainable heuristic scoring and rule-based 
+     sliding-window correlation.
+   - Software 2.0 (Evolution): Unsupervised Isolation Forests or Gaussian Mixture Models 
+     trained on historical user telemetry vectors [login_hour, lat, lon, file_kb].
+   - Software 3.0 (Agentic): LLM SOC Copilot (Gemini / Claude) that ingests raw JSON audit 
+     logs and automatically produces executive incident reports and remediation playbooks.
+
+================================================================================
+4. HONEST INTELLECTUAL SELF-DECLARATION (FOR RESUMES & VIVA DEFENSE)
+================================================================================
+When defending or presenting this project, use this exact honest self-declaration:
+
+"CyberShield is an end-to-end, functional prototype of a Continuous Adaptive Risk 
+and Trust Assessment (CARTA) platform. It implements deterministic heuristic UEBA 
+and sliding-window threat correlation across live browser telemetry.
+
+What it IS:
+  - A mathematically verifiable implementation of continuous Zero-Trust principles.
+  - A working demonstration of Haversine impossible travel detection, canary deception, 
+    adaptive step-up MFA, and MITRE ATT&CK-aligned SOC observability.
+  - A clean, zero-dependency Python/Flask architecture designed for complete inspectability.
+
+What it is NOT (and its natural production roadmap):
+  - It is not a distributed neural-network SIEM (e.g., Splunk/CrowdStrike scale). 
+    In production, SQLite would migrate to PostgreSQL/ClickHouse, and heuristic thresholds 
+    would be augmented by Isolation Forest anomaly detection models."
+
+================================================================================
+5. SYSTEM ARCHITECTURE & FILE BLUEPRINT
+================================================================================
+Directory Structure:
+  CyberShield/
+  |-- app.py                  # Flask controller, session state, routes & canary traps
+  |-- database.py             # SQLite schema, migrations, MITRE column, CRUD operations
+  |-- behaviour_engine.py     # Haversine distance/speed, Threat Intel & baseline comparisons
+  |-- risk_engine.py          # Dynamic risk scoring & threat tier classification
+  |-- attack_detector.py      # Sliding-window multi-stage attack correlation with MITRE codes
+  |-- otp_service.py          # Gmail SMTP OTP dispatcher with resilient local fallback
+  |-- cybershield.db          # Embedded relational SQLite database
+  |-- templates/
+  |   |-- login.html          # Authentication with live client location/time ingestion
+  |   |-- register.html       # Self-registration & initial baseline fingerprint setup
+  |   |-- dashboard.html      # User workspace, tactical map, file vault & honeytoken
+  |   |-- mfa.html            # Adaptive Step-Up verification portal
+  |   |-- admin.html          # SOC Console, interactive policy sliders & live feed
+  |   |-- simulation.html     # Interactive threat injection sandbox
+  |   `-- incident_report.html# Formal CISO Forensic Incident Dossier (PDF/Print)
+  `-- static/                 # Stylesheets, telemetry capture scripts, PWA manifest
+
+================================================================================
+6. DEEP-DIVE ALGORITHMS & MATHEMATICAL MODELS
+================================================================================
+
+A. HAVERSINE VELOCITY ENGINE (behaviour_engine.py)
+   - Earth radius R = 6371.0 km
+   - Computes angular distance:
+     a = sin²(Δlat/2) + cos(lat1) * cos(lat2) * sin²(Δlon/2)
+     c = 2 * atan2(sqrt(a), sqrt(1-a))
+     distance = R * c
+   - Velocity = distance / max(hours_diff, 0.1)
+   - If distance > 350 km and velocity > 800 km/h:
+     Flag: Impossible Travel (+35 Risk Points).
+
+B. DECEPTION HONEYTOKEN LOGIC (app.py)
+   - Endpoint: /download/file/<filename>
+   - Legitimate files -> normal download + T1078 logging.
+   - Decoy file ("Confidential_Executive_Salaries_2026.xlsx"):
+     * Trust score forced to 0.
+     * is_locked set to 1 (automated quarantine).
+     * Logged under MITRE T1204 (User Execution / Honeytoken Trap).
+     * In-app notification dispatched; session terminated.
+
+C. SLIDING-WINDOW ATTACK CORRELATION (attack_detector.py)
+   - Window size: N = 10 recent activities.
+   - Brute Force: >= 3 failed logins [MITRE T1110]
+   - Account Takeover: Failed attempts -> Success from new device/location [MITRE T1078]
+   - Data Exfiltration: Off-hours login -> Large file access [MITRE T1048]
+   - Impossible Travel: Distant coordinates within impossible timeframe [MITRE T1078.003]
+   - Anonymous Ingress: Tor exit node or high-risk proxy match [MITRE T1090]
+
+================================================================================
+7. VIVA & TECHNICAL INTERVIEW DEFENSE PLAYBOOK
+================================================================================
+Q1: Why did you build this in pure Python instead of using existing UEBA libraries?
+A1: To demonstrate true mechanical sympathy and first-principles understanding. 
+    By implementing the Haversine equations, sliding-window buffers, and heuristic 
+    risk formulas directly, the entire system is transparent, auditable, and has 
+    zero third-party attack surface.
+
+Q2: How does CyberShield avoid alert fatigue and false positives?
+A2: Rather than applying binary blocks on single anomalies, CyberShield employs 
+    Continuous Adaptive Risk and Trust Assessment (CARTA). Minor anomalies degrade 
+    trust gracefully. Only when cumulative risk breaches the policy threshold (60) 
+    does the system issue a frictionless Step-Up email OTP challenge.
+
+Q3: What makes your Impossible Travel algorithm realistic?
+A3: Many academic projects simply check if the city name changed. CyberShield extracts 
+    exact spherical coordinates, computes great-circle distance via Haversine trigonometry, 
+    and checks if the calculated velocity exceeds the 800 km/h commercial airliner limit.
+
+Q4: How does the Honeytoken Canary Trap operate under Zero-Trust?
+A4: Deception technology acts as an active tripwire. Legitimate employees have no 
+    business accessing executive salary files or AWS secret keys. Accessing a canary 
+    is a high-fidelity indicator of malicious intent or compromised credentials, 
+    justifying immediate automated quarantine (MITRE T1204).
+
+================================================================================
+8. QUICK EXECUTION GUIDE
+================================================================================
+1. Prerequisites:
+   pip install flask werkzeug
+
+2. (Optional) Configure Gmail SMTP for Live OTP:
+   $env:CYBERSHIELD_SMTP_EMAIL = "your-email@gmail.com"
+   $env:CYBERSHIELD_SMTP_PASSWORD = "your-16-char-app-password"
+
+3. Launch Server:
+   python app.py
+
+4. Access Web Application:
+   http://127.0.0.1:5000
+
+5. Default Test Accounts:
+   - User:  student / student123  (Test file vault, canary trap, map)
+   - SOC:   admin / admin123      (Test policy sliders, live feed, incident dossier)
+================================================================================

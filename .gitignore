@@ -1,0 +1,28 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE and Editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment & local variables
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Temporary tools & binaries
+cloudflared.exe
+cloudflared
+*.log
+
+# Helper downloads / skills
+andrej-karpathy-skills-main/
+
+# Database journals
+*.db-journal

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberShield | Zero-Trust Step-Up Verification</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="login-wrapper">
+        <div class="login-container" style="max-width: 480px;">
+            <div class="login-brand">
+                <span class="logo-icon" style="filter: drop-shadow(0 0 12px rgba(245, 158, 11, 0.6));">⚠️</span>
+                <h1>Zero-Trust Verification</h1>
+                <p>Step-Up Authentication Required</p>
+            </div>
+
+            <div class="message-alert" style="background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.5); color: #fde68a;">
+                <strong>Adaptive Policy Enforced:</strong><br>
+                Your Trust Score has fallen to <strong>{{ trust_score }}/100</strong> (Security Threshold: {{ threshold }}).
+                A one-time passcode has been dispatched to: <strong style="color: var(--color-cyan);">{{ user_email }}</strong>.
+            </div>
+
+            {% if error %}
+                <div class="message-alert">
+                    ❌ {{ error }}
+                </div>
+            {% endif %}
+
+            <form method="POST">
+                <div class="form-group">
+                    <label for="otp">Enter 6-Digit One-Time Passcode (OTP)</label>
+                    <input
+                        type="text"
+                        id="otp"
+                        name="otp"
+                        placeholder="••••••"
+                        maxlength="6"
+                        required
+                        autofocus
+                        style="text-align: center; font-size: 1.5rem; letter-spacing: 6px; font-weight: 700;"
+                    >
+                </div>
+
+                <button type="submit" class="btn btn-warning" style="width: 100%; padding: 13px; font-size: 1rem;">
+                    🔐 Confirm Identity & Restore Access
+                </button>
+            </form>
+
+            <div class="login-hints" style="text-align: center;">
+                <p><strong>Simulated Authenticator Token:</strong></p>
+                <p style="font-size: 0.95rem;">Use test OTP: <span class="hint-badge" style="font-size: 1.1rem; padding: 4px 10px; color: var(--color-cyan);">{{ demo_otp }}</span></p>
+                <div style="margin-top: 18px;">
+                    <a href="{{ url_for('logout') }}" style="color: var(--text-muted); font-size: 0.85rem; text-decoration: underline;">
+                        Cancel and Log Out
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
