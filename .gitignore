@@ -26,3 +26,6 @@ andrej-karpathy-skills-main/
 
 # Database journals
 *.db-journal
+
+# Vercel
+.vercel

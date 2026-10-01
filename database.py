@@ -1,7 +1,18 @@
 import sqlite3
+import os
+import shutil
 from werkzeug.security import generate_password_hash, check_password_hash
 
-DATABASE = "cybershield.db"
+# Vercel serverless: only /tmp is writable. Copy seed DB there on cold start.
+if os.environ.get("VERCEL"):
+    _tmp_db = "/tmp/cybershield.db"
+    if not os.path.exists(_tmp_db):
+        _src = os.path.join(os.path.dirname(__file__), "cybershield.db")
+        if os.path.exists(_src):
+            shutil.copy2(_src, _tmp_db)
+    DATABASE = _tmp_db
+else:
+    DATABASE = "cybershield.db"
 
 
 # =========================================================
