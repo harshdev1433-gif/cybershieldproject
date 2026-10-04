@@ -317,98 +317,6 @@ def verify_mfa(username):
 
 
 # =========================================================
-# ATTACK SIMULATION LAB
-# =========================================================
-
-@app.route("/simulate/<username>", methods=["GET", "POST"])
-def simulate(username):
-    if "username" not in session:
-        return redirect(url_for("login"))
-
-    if session.get("username") != username and session.get("role") != "admin":
-        return "Access Denied.", 403
-
-    simulated = False
-    scenario_title = ""
-    risk_score = 0
-    threat_level = "Normal"
-    reasons = []
-    attack_chains = []
-
-    if request.method == "POST":
-        scenario = request.form.get("scenario")
-        simulated = True
-
-        if scenario == "brute_force":
-            scenario_title = "Brute Force Authentication Storm"
-            for _ in range(4):
-                log_activity(username, "Failed Login Attempt (Credential Guessing)", 20, "Suspicious")
-            risk_score, threat_level, reasons = calculate_risk(failed_logins=5)
-            log_activity(username, "Brute Force Threshold Breached", risk_score, threat_level)
-
-        elif scenario == "impossible_travel":
-            scenario_title = "Impossible Travel & Geo-Anomaly"
-            risk_score, threat_level, reasons = calculate_risk(
-                new_device=True,
-                unusual_location=True
-            )
-            log_activity(username, "Login from New Device in London, UK (Geo-Anomaly)", risk_score, threat_level)
-
-        elif scenario == "data_exfiltration":
-            scenario_title = "Unauthorized Data Exfiltration"
-            risk_score, threat_level, reasons = calculate_risk(
-                unusual_time=True,
-                large_file_access=True
-            )
-            log_activity(username, "Large File Exfiltration at 02:30 AM (8.4 GB)", risk_score, threat_level)
-
-        elif scenario == "full_chain":
-            scenario_title = "Multi-Stage Kill Chain (APT Attack)"
-            log_activity(username, "Failed Login Attempt", 15, "Normal")
-            log_activity(username, "Successful Login from New Device", 25, "Suspicious")
-            log_activity(username, "Unusual Location Access Detected", 30, "Suspicious")
-            risk_score, threat_level, reasons = calculate_risk(
-                failed_logins=5,
-                new_device=True,
-                unusual_time=True,
-                unusual_location=True,
-                large_file_access=True
-            )
-            log_activity(username, "Large File Exfiltration - High Risk Simulation", risk_score, threat_level)
-
-        elif scenario == "normal_routine":
-            scenario_title = "Normal Authorized Session"
-            risk_score, threat_level, reasons = calculate_risk()
-            log_activity(username, "Normal Verified Routine Activity", risk_score, threat_level)
-
-        # Update trust score based on simulated risk
-        update_trust_score(username, risk_score)
-
-        # Invalidate MFA verification on new attack injection if trust drops below threshold
-        current_trust = get_trust_score(username)
-        mfa_threshold = int(get_policy("mfa_threshold", 60))
-        if current_trust < mfa_threshold:
-            session["mfa_verified"] = False
-            session.pop("demo_otp", None)  # Force fresh OTP dispatch
-
-        # Retrieve recent activities to evaluate attack chains
-        recent_acts = get_user_activities(username, limit=15)
-        act_texts = [a["activity"] for a in reversed(recent_acts)]
-        attack_chains = detect_attack_chain(act_texts)
-
-    trust_score = get_trust_score(username)
-
-    return render_template(
-        "simulation.html",
-        username=username,
-        simulated=simulated,
-        scenario_title=scenario_title,
-        risk_score=risk_score,
-        threat_level=threat_level,
-        reasons=reasons,
-        attack_chains=attack_chains,
-        trust_score=trust_score
-    )
 
 
 # =========================================================
@@ -1074,33 +982,6 @@ def admin_incident_report():
 
 
 
-# =========================================================
-# TEACHER PRESENTATION & VIVA DEFENSE MODE
-# =========================================================
-
-@app.route("/presentation")
-def presentation():
-    return render_template("presentation.html")
-
-
-@app.route("/api/viva/demo-reset", methods=["POST"])
-def viva_demo_reset():
-    unlock_user("student")
-    reset_trust_score("student", 100)
-    if session.get("username") == "student":
-        session["mfa_verified"] = True
-        session.pop("demo_otp", None)
-    log_activity(
-        username="student",
-        activity="Demo State Reset: Trust restored to 100% and account unlocked for viva presentation",
-        risk_score=0,
-        threat_level="Normal",
-        mitre_id="T1562"
-    )
-    return jsonify({
-        "success": True,
-        "message": "Student account unlocked, trust restored to 100%, and demo environment prepared for teacher presentation!"
-    })
 
 
 # =========================================================

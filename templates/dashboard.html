@@ -89,12 +89,6 @@
                     <strong>{{ username }}</strong>
                 </div>
 
-                <a href="{{ url_for('presentation') }}" class="btn btn-outline btn-sm" style="border-color: rgba(16, 185, 129, 0.4); color: var(--color-cyan);">
-                    🎓 Viva Mode
-                </a>
-                <a href="{{ url_for('simulate', username=username) }}" class="btn btn-warning btn-sm">
-                    ⚠️ Attack Lab
-                </a>
                 <a href="{{ url_for('logout') }}" class="btn btn-outline btn-sm">
                     Logout
                 </a>
@@ -960,24 +954,7 @@
             </div>
         </div>
 
-        <!-- =================================================
-             SECURITY SIMULATION LAB LINK
-             ================================================= -->
-        <section class="section glass-panel" style="border-left: 4px solid var(--color-suspicious);">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
-                <div>
-                    <h3 class="section-title" style="margin-bottom: 6px;">
-                        <span>🔬</span> Interactive Attack Simulation Lab
-                    </h3>
-                    <p class="section-desc" style="margin-bottom: 0;">
-                        Test how CyberShield responds to 3-Attempt Lockouts, Geo-Anomalies, and Data Exfiltration in real time.
-                    </p>
-                </div>
-                <a href="{{ url_for('simulate', username=username) }}" class="btn btn-warning">
-                    Launch Attack Simulator →
-                </a>
-            </div>
-        </section>
+
 
         <!-- =================================================
              ACTIVITY HISTORY TABLE (WITH MITRE ATT&CK TAGS)
