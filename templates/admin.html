@@ -5,6 +5,7 @@
 <title>CyberShield — SOC Admin Console</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/cybershield.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body>
 
@@ -259,84 +260,64 @@ var adminMap, safeCircle, safeMarker;
 var mapUsers = [];
 
 function initAdminMap() {
-  const defaultCenter = { lat: 32.7266, lng: 74.8570 };
-  adminMap = new google.maps.Map(document.getElementById("admin-map"), {
-    center: defaultCenter, zoom: 5,
-    styles: [
-      { elementType:"geometry", stylers:[{color:"#0a0f1e"}] },
-      { elementType:"labels.text.fill", stylers:[{color:"#8899bb"}] },
-      { elementType:"labels.text.stroke", stylers:[{color:"#05070f"}] },
-      { featureType:"administrative", elementType:"geometry", stylers:[{color:"#1a2545"}] },
-      { featureType:"road", elementType:"geometry", stylers:[{color:"#1a2545"}] },
-      { featureType:"water", elementType:"geometry", stylers:[{color:"#0d1a2e"}] },
-      { featureType:"poi", stylers:[{visibility:"off"}] },
-      { featureType:"transit", stylers:[{visibility:"off"}] }
-    ]
-  });
+  adminMap = L.map('admin-map').setView([32.7266, 74.8570], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors', maxZoom: 18
+  }).addTo(adminMap);
 
-  // Click to set safe zone center
-  adminMap.addListener("click", function(e) {
-    document.getElementById("szLat").value = e.latLng.lat().toFixed(6);
-    document.getElementById("szLng").value = e.latLng.lng().toFixed(6);
+  adminMap.on('click', function(e) {
+    document.getElementById('szLat').value = e.latlng.lat.toFixed(6);
+    document.getElementById('szLng').value = e.latlng.lng.toFixed(6);
     drawSafeCircle();
   });
-
   loadAllLocations();
 }
 
 function drawSafeCircle() {
-  const lat = parseFloat(document.getElementById("szLat").value);
-  const lng = parseFloat(document.getElementById("szLng").value);
-  const rad = parseFloat(document.getElementById("szRadius").value) * 1000;
-  if (safeCircle) safeCircle.setMap(null);
-  if (safeMarker) safeMarker.setMap(null);
-  safeCircle = new google.maps.Circle({
-    map: adminMap, center:{lat,lng}, radius: rad,
-    fillColor:"#00ff88", fillOpacity:0.07,
-    strokeColor:"#00ff88", strokeOpacity:0.6, strokeWeight:2
-  });
-  safeMarker = new google.maps.Marker({
-    position:{lat,lng}, map: adminMap,
-    icon:{path:google.maps.SymbolPath.CIRCLE,scale:7,fillColor:"#00ff88",fillOpacity:0.9,strokeColor:"#00ff88",strokeWeight:2}
-  });
+  var lat = parseFloat(document.getElementById('szLat').value);
+  var lng = parseFloat(document.getElementById('szLng').value);
+  var rad = parseFloat(document.getElementById('szRadius').value) * 1000;
+  if (safeCircle) adminMap.removeLayer(safeCircle);
+  if (safeMarker) adminMap.removeLayer(safeMarker);
+  safeCircle = L.circle([lat, lng], {
+    radius: rad, color: '#16a34a', fillColor: '#16a34a', fillOpacity: 0.08, weight: 2
+  }).addTo(adminMap);
+  safeMarker = L.circleMarker([lat, lng], {
+    radius: 7, color: '#16a34a', fillColor: '#16a34a', fillOpacity: 0.9
+  }).addTo(adminMap).bindPopup('Safe Zone Center');
+  adminMap.panTo([lat, lng]);
 }
 
 function loadAllLocations() {
-  fetch("/api/admin/all-locations")
-    .then(r => r.json())
-    .then(d => {
-      document.getElementById("mapUserCount").textContent = d.users.length + " users";
-      const sz = d.safe_zone;
-      document.getElementById("szLat").value = sz.lat;
-      document.getElementById("szLng").value = sz.lng;
-      document.getElementById("szRadius").value = sz.radius_km;
-      document.getElementById("radiusVal").textContent = sz.radius_km;
-      document.getElementById("szCity").value = sz.city;
+  fetch('/api/admin/all-locations')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      document.getElementById('mapUserCount').textContent = d.users.length + ' users';
+      var sz = d.safe_zone;
+      document.getElementById('szLat').value = sz.lat;
+      document.getElementById('szLng').value = sz.lng;
+      document.getElementById('szRadius').value = sz.radius_km;
+      document.getElementById('radiusVal').textContent = sz.radius_km;
+      document.getElementById('szCity').value = sz.city;
       drawSafeCircle();
 
-      d.users.forEach(u => {
-        const inZone = u.in_safe_zone;
-        const color = u.role === "admin" ? "#00c8ff" : (inZone ? "#ffcc00" : "#ff3366");
-        const marker = new google.maps.Marker({
-          position:{lat:u.lat, lng:u.lng}, map:adminMap,
-          icon:{path:google.maps.SymbolPath.CIRCLE, scale:8, fillColor:color, fillOpacity:0.9, strokeColor:color, strokeWeight:2},
-          title: u.username
-        });
-        const info = new google.maps.InfoWindow({
-          content:`<div style="background:#0a0f1e;color:#e2e8f7;padding:10px;border-radius:8px;font-family:monospace;font-size:12px;min-width:160px;">
-            <strong style="color:${color};">${u.role === "admin" ? "🔵" : (inZone?"🟡":"🔴")} ${u.username}</strong><br>
-            📍 ${u.location}<br>
-            🛡️ Trust: ${u.trust_score} · ${u.distance_km} km from zone<br>
-            ${inZone ? '<span style="color:#00ff88;">✅ In Safe Zone</span>' : '<span style="color:#ff3366;">🚨 Outside Safe Zone</span>'}<br>
-            🕒 ${u.last_login_time}
-          </div>`
-        });
-        marker.addListener("click", () => info.open(adminMap, marker));
+      d.users.forEach(function(u) {
+        var color = u.role === 'admin' ? '#2563eb' : (u.in_safe_zone ? '#d97706' : '#dc2626');
+        var marker = L.circleMarker([u.lat, u.lng], {
+          radius: 8, color: color, fillColor: color, fillOpacity: 0.85, weight: 2
+        }).addTo(adminMap);
+        marker.bindPopup(
+          '<b>' + u.username + '</b><br>' +
+          u.location + '<br>' +
+          'Trust: ' + u.trust_score + ' &bull; ' + u.distance_km + ' km from zone<br>' +
+          (u.in_safe_zone ? '<span style="color:#16a34a">In Safe Zone</span>' : '<span style="color:#dc2626">Outside Safe Zone</span>') +
+          '<br>' + u.last_login_time
+        );
       });
     });
 }
 
-document.getElementById("szRadius").addEventListener("input", drawSafeCircle);
+document.getElementById('szRadius').addEventListener('input', drawSafeCircle);
 
 function saveSafeZone() {
   const data = {
@@ -390,6 +371,7 @@ function refreshFeed() {
 setInterval(refreshFeed, 10000);
 refreshFeed();
 </script>
-<script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initAdminMap"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>document.addEventListener("DOMContentLoaded", initAdminMap);</script>
 </body>
 </html>

@@ -5,6 +5,7 @@
 <title>CyberShield — {{ username }} Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/cybershield.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body>
 
@@ -268,83 +269,50 @@ const ZONE_CITY  = "{{ safe_zone.city }}";
 const ZONE_ON    = {{ "true" if safe_zone.enabled else "false" }};
 
 function initMap() {
-  const loginPos  = { lat: LOGIN_LAT, lng: LOGIN_LNG };
-  const zonePos   = { lat: ZONE_LAT,  lng: ZONE_LNG  };
+  var map = L.map('map-panel').setView([LOGIN_LAT, LOGIN_LNG], 7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors', maxZoom: 18
+  }).addTo(map);
 
-  const map = new google.maps.Map(document.getElementById("map-panel"), {
-    center: loginPos,
-    zoom: 7,
-    mapTypeId: "roadmap",
-    styles: [
-      { elementType:"geometry", stylers:[{color:"#0a0f1e"}] },
-      { elementType:"labels.text.fill", stylers:[{color:"#8899bb"}] },
-      { elementType:"labels.text.stroke", stylers:[{color:"#05070f"}] },
-      { featureType:"administrative", elementType:"geometry", stylers:[{color:"#1a2545"}] },
-      { featureType:"road", elementType:"geometry", stylers:[{color:"#1a2545"}] },
-      { featureType:"road.highway", elementType:"geometry", stylers:[{color:"#1e3a5f"}] },
-      { featureType:"water", elementType:"geometry", stylers:[{color:"#0d1a2e"}] },
-      { featureType:"poi", stylers:[{visibility:"off"}] },
-      { featureType:"transit", stylers:[{visibility:"off"}] }
-    ]
-  });
-
-  // Safe zone circle
   if (ZONE_ON) {
-    new google.maps.Circle({
-      map,
-      center: zonePos,
+    L.circle([ZONE_LAT, ZONE_LNG], {
       radius: ZONE_RAD * 1000,
-      fillColor: "#00ff88",
-      fillOpacity: 0.07,
-      strokeColor: "#00ff88",
-      strokeOpacity: 0.6,
-      strokeWeight: 2
-    });
-    new google.maps.Marker({
-      position: zonePos, map,
-      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 6, fillColor:"#00ff88", fillOpacity:0.8, strokeColor:"#00ff88", strokeWeight:2 },
-      title: "Safe Zone Center: " + ZONE_CITY
-    });
+      color: '#16a34a', fillColor: '#16a34a', fillOpacity: 0.08, weight: 2
+    }).addTo(map).bindPopup('<b>Safe Zone</b><br>' + ZONE_CITY + '<br>Radius: ' + ZONE_RAD + ' km');
+    L.circleMarker([ZONE_LAT, ZONE_LNG], {
+      radius: 7, color: '#16a34a', fillColor: '#16a34a', fillOpacity: 0.9
+    }).addTo(map).bindPopup('Safe Zone Center: ' + ZONE_CITY);
   }
 
-  // User login marker
-  const loginMarker = new google.maps.Marker({
-    position: loginPos, map,
-    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor:"#00c8ff", fillOpacity:0.9, strokeColor:"#00c8ff", strokeWeight:3 },
-    title: "Your Last Login"
+  var loginIcon = L.divIcon({
+    className: '',
+    html: "<div style='width:16px;height:16px;border-radius:50%;background:#2563eb;border:3px solid #fff;box-shadow:0 2px 8px rgba(37,99,235,0.5);'></div>",
+    iconSize: [16,16], iconAnchor: [8,8]
   });
+  L.marker([LOGIN_LAT, LOGIN_LNG], {icon: loginIcon}).addTo(map)
+    .bindPopup('<b>Your Last Login</b><br>{{ last_location }}<br>{{ user.last_login_time or "Now" }}')
+    .openPopup();
 
-  const infoWin = new google.maps.InfoWindow({
-    content: `<div style="background:#0a0f1e;color:#e2e8f7;padding:10px;border-radius:8px;font-family:monospace;font-size:12px;">
-      <strong style="color:#00c8ff;">🔵 Your Last Login</strong><br>
-      <span>📍 {{ last_location }}</span><br>
-      <span style="color:#8899bb;">{{ user.last_login_time or "Now" }}</span>
-    </div>`
-  });
-  loginMarker.addListener("click", () => infoWin.open(map, loginMarker));
-
-  // Check distance and update zone status bar
-  const dist = haversineKm(LOGIN_LAT, LOGIN_LNG, ZONE_LAT, ZONE_LNG);
-  const inZone = !ZONE_ON || dist <= ZONE_RAD;
-  const bar  = document.getElementById("zone-bar");
-  const badge = document.getElementById("map-zone-badge");
-  const statVal = document.getElementById("zone-status-val");
-  const statSub = document.getElementById("zone-dist-sub");
+  var dist = haversineKm(LOGIN_LAT, LOGIN_LNG, ZONE_LAT, ZONE_LNG);
+  var inZone = !ZONE_ON || dist <= ZONE_RAD;
+  var bar = document.getElementById('zone-bar');
+  var badge = document.getElementById('map-zone-badge');
+  var statVal = document.getElementById('zone-status-val');
+  var statSub = document.getElementById('zone-dist-sub');
 
   if (inZone) {
-    bar.className = "zone-status-bar zone-safe";
-    bar.textContent = "✅ Within Safe Zone — " + ZONE_CITY + " (" + dist.toFixed(1) + " km from center)";
-    badge.className = "badge badge-normal"; badge.textContent = "Safe Zone ✓";
-    statVal.textContent = "In Zone"; statVal.style.color = "var(--green)";
+    bar.className = 'zone-status-bar zone-safe';
+    bar.textContent = 'Within Safe Zone - ' + ZONE_CITY + ' (' + dist.toFixed(1) + ' km from center)';
+    badge.className = 'badge badge-normal'; badge.textContent = 'Safe Zone';
+    statVal.textContent = 'In Zone'; statVal.style.color = '#16a34a';
   } else {
-    bar.className = "zone-status-bar zone-danger";
-    bar.textContent = "🚨 OUTSIDE Safe Zone — " + dist.toFixed(1) + " km from " + ZONE_CITY;
-    badge.className = "badge badge-critical"; badge.textContent = "⚠ Outside Zone";
-    statVal.textContent = "Outside"; statVal.style.color = "var(--red)";
-    // Draw alert circle around login marker
-    new google.maps.Circle({ map, center: loginPos, radius: 30000, fillColor:"#ff3366", fillOpacity:0.1, strokeColor:"#ff3366", strokeOpacity:0.8, strokeWeight:2 });
+    bar.className = 'zone-status-bar zone-danger';
+    bar.textContent = 'OUTSIDE Safe Zone - ' + dist.toFixed(1) + ' km from ' + ZONE_CITY;
+    badge.className = 'badge badge-critical'; badge.textContent = 'Outside Zone';
+    statVal.textContent = 'Outside'; statVal.style.color = '#dc2626';
+    L.circle([LOGIN_LAT, LOGIN_LNG], {radius:30000, color:'#dc2626', fillColor:'#dc2626', fillOpacity:0.06, weight:2}).addTo(map);
   }
-  statSub.textContent = ZONE_CITY + " · " + dist.toFixed(1) + " km · " + ZONE_RAD + " km radius";
+  statSub.textContent = ZONE_CITY + ' - ' + dist.toFixed(1) + ' km - ' + ZONE_RAD + ' km radius';
 }
 
 function haversineKm(lat1,lng1,lat2,lng2) {
@@ -381,6 +349,7 @@ document.getElementById("docModal").addEventListener("click", function(e) {
   if (e.target === this) closeModal();
 });
 </script>
-<script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>document.addEventListener("DOMContentLoaded", initMap);</script>
 </body>
 </html>
