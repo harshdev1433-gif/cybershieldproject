@@ -1,508 +1,395 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#09090b">
-    <title>CyberShield | Security Operations Center (Admin)</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CyberShield — SOC Admin Console</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/cybershield.css">
 </head>
 <body>
 
-    <!-- HEADER -->
-    <header class="header">
-        <div class="nav">
-            <div class="brand-logo">
-                <span style="font-size: 1.8rem;">🛡️</span>
-                <div>
-                    <h1>CyberShield SOC</h1>
-                    <p class="brand-tagline">Security Operations Center &amp; Enterprise Monitoring</p>
-                </div>
-            </div>
+<nav class="navbar">
+  <a class="navbar-brand" href="/admin">
+    <span class="shield-icon">🛡️</span> CYBERSHIELD
+    <span style="margin-left:8px;font-size:0.6rem;color:var(--red);font-weight:700;">SOC ADMIN</span>
+  </a>
+  <div class="nav-links">
+    <a href="/admin/incident-report" class="nav-link">📋 Incident Report</a>
+    <a href="/admin/export/csv" class="nav-link">⬇ Export CSV</a>
+    <a href="/admin/export/json" class="nav-link">⬇ Export JSON</a>
+    <a href="/logout" class="btn btn-danger btn-sm">🔓 Logout</a>
+  </div>
+</nav>
 
-            <div class="nav-links">
-                <!-- Live SOC Clock -->
-                <div style="display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 0.8rem; color: var(--color-emerald); border: 1px solid rgba(16,185,129,0.25); border-radius: var(--radius-sm); padding: 5px 12px; background: rgba(16,185,129,0.06);">
-                    <span class="pulse-dot" style="background: var(--color-emerald);"></span>
-                    <span class="live-clock">00:00:00 UTC</span>
-                </div>
+<div class="main-container">
 
-                <div class="user-badge" style="color: #f87171; border-color: rgba(239, 68, 68, 0.4);">
-                    <span>🛡️</span>
-                    <strong>SOC Analyst: {{ session.get('username') }}</strong>
-                </div>
-                <a href="{{ url_for('admin_incident_report') }}" class="btn btn-warning btn-sm" title="Generate CISO Forensic Dossier">
-                    📋 Incident Dossier
-                </a>
-                <a href="{{ url_for('admin_export_csv') }}" class="btn btn-outline btn-sm" title="Export Forensic Audit Log (CSV)">
-                    📥 CSV
-                </a>
-                <a href="{{ url_for('logout') }}" class="btn btn-outline btn-sm">
-                    Logout
-                </a>
-            </div>
+  <!-- Header -->
+  <div class="flex-between mb-3">
+    <div>
+      <h2 style="font-size:1.3rem;color:var(--red);">⚙️ Security Operations Center</h2>
+      <p style="font-size:0.72rem;color:var(--text-secondary);margin-top:4px;">
+        <span class="pulse-dot"></span>Live SOC Dashboard · Administrator Console
+      </p>
+    </div>
+    <div style="font-size:0.72rem;color:var(--text-secondary);">
+      Last refreshed: <span id="lastRefresh">--</span>
+    </div>
+  </div>
+
+  <!-- Stat Tiles -->
+  <div class="grid-4 mb-3">
+    <div class="stat-tile">
+      <div class="stat-label">Total Events</div>
+      <div class="stat-value text-cyan">{{ stats.total_events }}</div>
+      <div class="stat-sub">All time audit log entries</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Critical Alerts</div>
+      <div class="stat-value text-red">{{ stats.critical_events }}</div>
+      <div class="stat-sub">Requires immediate response</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Suspicious Events</div>
+      <div class="stat-value text-yellow">{{ stats.suspicious_events }}</div>
+      <div class="stat-sub">Anomaly indicators detected</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Locked Accounts</div>
+      <div class="stat-value text-orange">{{ stats.locked_users }}</div>
+      <div class="stat-sub">{{ stats.total_users }} total users · Avg trust: {{ stats.avg_trust }}</div>
+    </div>
+  </div>
+
+  <!-- Global Map + Safe Zone Editor -->
+  <div class="grid-2 mb-3">
+
+    <!-- Global Login Map -->
+    <div class="card" style="grid-column: span 1;">
+      <div class="card-header" style="justify-content:space-between;">
+        <span>🗺️ Global User Login Map</span>
+        <span class="badge badge-info" id="mapUserCount">Loading...</span>
+      </div>
+      <div class="card-body" style="padding:12px;">
+        <div id="admin-map"></div>
+        <div style="display:flex;gap:12px;margin-top:10px;font-size:0.68rem;color:var(--text-secondary);">
+          <span>🟢 Safe Zone</span>
+          <span>🔵 Admin user</span>
+          <span>🟡 Standard user</span>
+          <span>🔴 Outside zone</span>
         </div>
-    </header>
+      </div>
+    </div>
 
-    <main class="container">
-        <div class="page-header">
-            <h2>Enterprise Threat &amp; Incident Overview</h2>
-            <p class="page-subtitle">Real-time telemetry, threat intelligence correlation, and active Zero-Trust policy enforcement.</p>
+    <!-- Safe Zone Editor -->
+    <div class="card">
+      <div class="card-header">🔵 Safe Zone Configuration</div>
+      <div class="card-body">
+        <div class="form-group">
+          <label class="form-label">Zone Center City Name</label>
+          <input type="text" id="szCity" class="form-control" value="{{ policies | selectattr('key','eq','safe_zone_city') | map(attribute='value') | first | default('Jammu') }}">
         </div>
-
-        <!-- TOP KPI METRICS CARDS -->
-        <div class="cards" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
-
-            <!-- Total Events -->
-            <div class="admin-kpi-card">
-                <div class="admin-kpi-header">
-                    <span class="admin-kpi-title">Total Logged Events</span>
-                    <span style="font-size: 1.1rem; opacity: 0.7;">📊</span>
-                </div>
-                <div class="admin-kpi-val">{{ stats.total_events }}</div>
-                <div class="admin-kpi-footer">
-                    <span style="color: var(--color-emerald);">▲</span> Audited telemetry records
-                </div>
-            </div>
-
-            <!-- Critical Threats -->
-            <div class="admin-kpi-card" style="--kpi-accent: var(--color-critical);">
-                <div class="admin-kpi-header">
-                    <span class="admin-kpi-title">Critical Threats</span>
-                    <span style="font-size: 1.1rem; opacity: 0.7;">🔴</span>
-                </div>
-                <div class="admin-kpi-val" style="color: var(--color-critical);">{{ stats.critical_events }}</div>
-                <div class="admin-kpi-footer">
-                    High-priority security alerts
-                </div>
-            </div>
-
-            <!-- Suspicious Anomalies -->
-            <div class="admin-kpi-card" style="--kpi-accent: var(--color-suspicious);">
-                <div class="admin-kpi-header">
-                    <span class="admin-kpi-title">Suspicious Indicators</span>
-                    <span style="font-size: 1.1rem; opacity: 0.7;">🟠</span>
-                </div>
-                <div class="admin-kpi-val" style="color: var(--color-suspicious);">{{ stats.suspicious_events }}</div>
-                <div class="admin-kpi-footer">
-                    Anomalies under review
-                </div>
-            </div>
-
-            <!-- Quarantined Accounts -->
-            <div class="admin-kpi-card" style="--kpi-accent: {% if stats.locked_users > 0 %}var(--color-critical){% else %}var(--color-emerald){% endif %};">
-                <div class="admin-kpi-header">
-                    <span class="admin-kpi-title">Quarantined Accounts</span>
-                    <span style="font-size: 1.1rem; opacity: 0.7;">⛔</span>
-                </div>
-                <div class="admin-kpi-val" style="color: {% if stats.locked_users > 0 %}var(--color-critical){% else %}var(--color-emerald){% endif %};">
-                    {{ stats.locked_users }}
-                </div>
-                <div class="admin-kpi-footer">
-                    Locked of {{ stats.total_users }} total users
-                </div>
-            </div>
-
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Latitude</label>
+            <input type="number" id="szLat" class="form-control" step="0.0001" value="{{ policies | selectattr('key','eq','safe_zone_lat') | map(attribute='value') | first | default('32.7266') }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Longitude</label>
+            <input type="number" id="szLng" class="form-control" step="0.0001" value="{{ policies | selectattr('key','eq','safe_zone_lng') | map(attribute='value') | first | default('74.8570') }}">
+          </div>
         </div>
+        <div class="form-group">
+          <label class="form-label">Radius: <span id="radiusVal">{{ policies | selectattr('key','eq','safe_zone_radius_km') | map(attribute='value') | first | default('100') }}</span> km</label>
+          <input type="range" id="szRadius" min="10" max="2000" step="10" value="{{ policies | selectattr('key','eq','safe_zone_radius_km') | map(attribute='value') | first | default('100') }}" oninput="document.getElementById('radiusVal').textContent=this.value">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Zone Enforcement</label>
+          <select id="szEnabled" class="form-control">
+            <option value="1" {% if (policies | selectattr('key','eq','safe_zone_enabled') | map(attribute='value') | first | default('1')) == '1' %}selected{% endif %}>✅ Enabled — Alert on out-of-zone logins</option>
+            <option value="0" {% if (policies | selectattr('key','eq','safe_zone_enabled') | map(attribute='value') | first | default('1')) == '0' %}selected{% endif %}>❌ Disabled</option>
+          </select>
+        </div>
+        <button onclick="saveSafeZone()" class="btn btn-success w-full" style="justify-content:center;">
+          💾 Save Safe Zone
+        </button>
+        <div id="szSaveMsg" style="margin-top:10px;font-size:0.76rem;text-align:center;"></div>
+        <hr class="divider">
+        <div style="font-size:0.68rem;color:var(--text-secondary);line-height:1.6;">
+          💡 <strong>Tip:</strong> Click anywhere on the map to set zone center. The green circle shows the safe zone boundary.
+          Logins outside this radius will raise risk score and trigger alerts.
+        </div>
+      </div>
+    </div>
+  </div>
 
-        <!-- CHART + POLICIES ROW -->
-        <div class="chart-row" style="margin-top: 28px;">
+  <!-- Users Table + Policy Sliders -->
+  <div class="grid-2 mb-3">
 
-            <!-- Chart Card -->
-            <div class="section" style="margin-bottom: 0;">
-                <h3 class="section-title">
-                    <span>📈</span> Security Telemetry Distribution
-                </h3>
-                <p class="section-desc">Live event breakdown across threat classification tiers.</p>
-                <div style="height: 260px; display: flex; align-items: center; justify-content: center;">
-                    <canvas id="threatChart"></canvas>
-                </div>
-                <!-- Enterprise Health Bar -->
-                <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-color);">
-                    <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
-                        <span style="font-size: 0.82rem; color: var(--text-secondary); font-family: var(--font-sans);">Enterprise Health Rating</span>
-                        <strong style="font-family: var(--font-mono); font-size: 0.95rem; color: var(--color-emerald);">{{ stats.avg_trust }}%</strong>
-                    </div>
-                    <div class="trust-meter-wrapper" style="margin: 0;">
-                        <div class="trust-meter-bar {% if stats.avg_trust >= 70 %}trust-green{% elif stats.avg_trust >= 40 %}trust-orange{% else %}trust-red{% endif %}"
-                             style="width: {{ stats.avg_trust }}%;"></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Zero-Trust Policy Control Card -->
-            <div class="section" style="margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between;">
-                <div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                        <h3 class="section-title" style="margin-bottom: 0;">
-                            <span>⚙️</span> Zero-Trust Policy Control
-                        </h3>
-                        <span id="policyStatusBadge" style="font-size: 0.75rem; color: var(--color-emerald); display: none; font-family: var(--font-mono);">
-                            ✅ Saved &amp; Enforced
-                        </span>
-                    </div>
-                    <p class="section-desc" style="margin-bottom: 16px;">Adjust real-time anomaly thresholds and automated containment rules.</p>
-
-                    <form id="policyForm" onsubmit="savePolicies(event)">
-
-                        <!-- Slider: MFA Step-Up -->
-                        <div class="policy-card">
-                            <div class="policy-slider-group">
-                                <div class="policy-slider-header">
-                                    <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">Step-Up MFA Threshold</label>
-                                    <span class="policy-slider-val" style="color: var(--color-cyan);">
-                                        <span id="mfa_val">60</span> / 100
-                                    </span>
-                                </div>
-                                <input type="range" id="policy_mfa" class="policy-range-input" min="30" max="90" value="60"
-                                       oninput="document.getElementById('mfa_val').innerText = this.value">
-                                <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 5px;">
-                                    Trust Scores below this threshold trigger Email OTP challenge.
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Slider: Max Failed Attempts -->
-                        <div class="policy-card">
-                            <div class="policy-slider-group">
-                                <div class="policy-slider-header">
-                                    <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">Max Failed Login Lockout</label>
-                                    <span class="policy-slider-val" style="color: var(--color-critical);">
-                                        <span id="max_failed_val">3</span> attempts
-                                    </span>
-                                </div>
-                                <input type="range" id="policy_max_failed" class="policy-range-input" min="2" max="6" value="3"
-                                       style="accent-color: var(--color-critical);"
-                                       oninput="document.getElementById('max_failed_val').innerText = this.value">
-                                <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 5px;">
-                                    Consecutive failures before automated account quarantine.
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Toggle Switches -->
-                        <div class="policy-card" style="display: flex; flex-direction: column; gap: 10px;">
-                            <label style="display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; cursor: pointer; color: var(--text-primary);">
-                                <span>⛔ Auto-Quarantine Enforced</span>
-                                <input type="checkbox" id="policy_auto_quarantine" checked style="accent-color: var(--color-emerald); transform: scale(1.3);">
-                            </label>
-                            <label style="display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; cursor: pointer; color: var(--text-primary);">
-                                <span>🪤 Honeytoken Canary Trap Active</span>
-                                <input type="checkbox" id="policy_canary" checked style="accent-color: var(--color-cyan); transform: scale(1.3);">
-                            </label>
-                            <label style="display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; cursor: pointer; color: var(--text-primary);">
-                                <span>🌐 Tor / Proxy Threat Intel Blocking</span>
-                                <input type="checkbox" id="policy_threat_intel" checked style="accent-color: var(--color-suspicious); transform: scale(1.3);">
-                            </label>
-                        </div>
-
-                        <button type="submit" class="btn btn-sm btn-cyan" style="width: 100%; justify-content: center; margin-top: 4px;">
-                            💾 Save &amp; Apply Policies
-                        </button>
+    <!-- Users -->
+    <div class="card">
+      <div class="card-header">👥 User Registry</div>
+      <div class="card-body" style="padding:0;">
+        <div class="overflow-auto">
+          <table class="soc-table">
+            <thead>
+              <tr>
+                <th>User</th><th>Trust</th><th>Status</th><th>Last Login</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for u in users %}
+              <tr>
+                <td>
+                  <strong>{{ u.username }}</strong>
+                  <div style="font-size:0.65rem;color:var(--text-secondary);">{{ u.role|upper }} · {{ u.email or "—" }}</div>
+                </td>
+                <td>
+                  <span style="color:{% if u.trust_score >= 70 %}var(--green){% elif u.trust_score >= 40 %}var(--yellow){% else %}var(--red){% endif %};font-weight:700;">
+                    {{ u.trust_score }}
+                  </span>
+                </td>
+                <td>
+                  {% if u.is_locked %}
+                    <span class="badge badge-critical">🔒 LOCKED</span>
+                  {% else %}
+                    <span class="badge badge-normal">✅ Active</span>
+                  {% endif %}
+                </td>
+                <td style="font-size:0.68rem;color:var(--text-secondary);">
+                  {{ u.last_login_location or "—" }}<br>
+                  {{ u.last_login_time or "Never" }}
+                </td>
+                <td>
+                  <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                    {% if u.is_locked %}
+                    <form method="POST" action="/admin/unlock/{{ u.username }}" style="margin:0;">
+                      <button class="btn btn-success btn-xs">🔓 Unlock</button>
                     </form>
-                </div>
-            </div>
+                    {% else %}
+                    <form method="POST" action="/admin/lock/{{ u.username }}" style="margin:0;">
+                      <button class="btn btn-danger btn-xs" onclick="return confirm('Lock {{ u.username }}?')">🔒 Lock</button>
+                    </form>
+                    {% endif %}
+                    <form method="POST" action="/admin/reset-trust/{{ u.username }}" style="margin:0;">
+                      <button class="btn btn-warning btn-xs">🔄 Reset Trust</button>
+                    </form>
+                    <a href="/dashboard/{{ u.username }}" class="btn btn-outline btn-xs">📊 View</a>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
+      </div>
+    </div>
 
-        <!-- USER ACCOUNTS & ZERO TRUST ENFORCEMENT -->
-        <section class="section" style="margin-top: 28px;">
-            <h3 class="section-title">
-                <span>👥</span> Monitored Identities &amp; Active Defense Actions
-            </h3>
-            <p class="section-desc">
-                Review user trust levels and execute incident response actions such as quarantining accounts or restoring verified scores.
-            </p>
+    <!-- Policies -->
+    <div class="card">
+      <div class="card-header">🎛️ Zero-Trust Policy Controls</div>
+      <div class="card-body">
+        {% for p in policies %}
+        {% if p.key not in ["safe_zone_lat","safe_zone_lng","safe_zone_radius_km","safe_zone_city","safe_zone_enabled"] %}
+        <div style="margin-bottom:16px;">
+          <label class="form-label">{{ p.key | replace("_"," ") | title }}</label>
+          {% if p.key == "mfa_threshold" %}
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="range" min="0" max="100" step="5" value="{{ p.value }}" id="pol_{{ p.key }}"
+              oninput="document.getElementById('polval_{{ p.key }}').textContent=this.value" style="flex:1;">
+            <span id="polval_{{ p.key }}" style="color:var(--cyan);min-width:30px;">{{ p.value }}</span>
+          </div>
+          {% elif p.key == "max_failed_attempts" %}
+          <div style="display:flex;align-items:center;gap:10px;">
+            <input type="range" min="1" max="10" step="1" value="{{ p.value }}" id="pol_{{ p.key }}"
+              oninput="document.getElementById('polval_{{ p.key }}').textContent=this.value" style="flex:1;">
+            <span id="polval_{{ p.key }}" style="color:var(--cyan);min-width:30px;">{{ p.value }}</span>
+          </div>
+          {% else %}
+          <select class="form-control" id="pol_{{ p.key }}">
+            <option value="1" {% if p.value == "1" %}selected{% endif %}>✅ Enabled</option>
+            <option value="0" {% if p.value == "0" %}selected{% endif %}>❌ Disabled</option>
+          </select>
+          {% endif %}
+          <div style="font-size:0.65rem;color:var(--text-muted);margin-top:4px;">{{ p.description }}</div>
+        </div>
+        {% endif %}
+        {% endfor %}
+        <button onclick="savePolicies()" class="btn btn-primary w-full" style="justify-content:center;">
+          💾 Save All Policies
+        </button>
+        <div id="polSaveMsg" style="margin-top:10px;font-size:0.76rem;text-align:center;"></div>
+      </div>
+    </div>
+  </div>
 
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>User ID</th>
-                            <th>Username</th>
-                            <th>Role</th>
-                            <th>Trust Score</th>
-                            <th>Status</th>
-                            <th>Failed Logins</th>
-                            <th>SOC Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for u in users %}
-                            <tr>
-                                <td><span style="font-family: var(--font-mono); color: var(--text-muted);">#{{ u.id }}</span></td>
-                                <td><strong>{{ u.username }}</strong></td>
-                                <td><span class="user-badge" style="display: inline-block;">{{ u.role }}</span></td>
-                                <td>
-                                    <span style="font-family: var(--font-mono); font-weight: 700;
-                                        color: {% if u.trust_score >= 70 %}var(--color-emerald){% elif u.trust_score >= 40 %}var(--color-suspicious){% else %}var(--color-critical){% endif %};">
-                                        {{ u.trust_score }}/100
-                                    </span>
-                                </td>
-                                <td>
-                                    {% if u.is_locked == 1 %}
-                                        <span class="badge-locked">⛔ QUARANTINED</span>
-                                    {% else %}
-                                        <span class="badge-active">🟢 ACTIVE</span>
-                                    {% endif %}
-                                </td>
-                                <td><span style="font-family: var(--font-mono);">{{ u.failed_attempts }}</span></td>
-                                <td>
-                                    <div style="display: flex; gap: 8px;">
-                                        <form method="POST" action="{{ url_for('admin_reset_trust', username=u.username) }}" style="display: inline;">
-                                            <button type="submit" class="btn btn-cyan btn-sm" title="Restore Trust Score to 100">
-                                                🔄 Reset
-                                            </button>
-                                        </form>
-                                        {% if u.is_locked == 1 %}
-                                            <form method="POST" action="{{ url_for('admin_unlock', username=u.username) }}" style="display: inline;">
-                                                <button type="submit" class="btn btn-success btn-sm" title="Restore User Access">
-                                                    🔓 Unlock
-                                                </button>
-                                            </form>
-                                        {% else %}
-                                            <form method="POST" action="{{ url_for('admin_lock', username=u.username) }}" style="display: inline;">
-                                                <button type="submit" class="btn btn-danger btn-sm" title="Quarantine and Block User">
-                                                    ⛔ Quarantine
-                                                </button>
-                                            </form>
-                                        {% endif %}
-                                    </div>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </section>
+  <!-- Live Event Feed -->
+  <div class="card mb-3">
+    <div class="card-header" style="justify-content:space-between;">
+      <span>📡 Live Audit Event Feed</span>
+      <span class="badge badge-info"><span class="pulse-dot"></span>Live</span>
+    </div>
+    <div class="card-body" style="padding:0;max-height:360px;overflow-y:auto;">
+      <table class="soc-table">
+        <thead>
+          <tr><th>#</th><th>Timestamp</th><th>User</th><th>Event</th><th>MITRE</th><th>Risk</th><th>Level</th><th>Trust</th></tr>
+        </thead>
+        <tbody id="liveTable">
+          {% for a in activities %}
+          <tr>
+            <td style="color:var(--text-muted);">{{ a.id }}</td>
+            <td style="font-size:0.68rem;color:var(--text-secondary);white-space:nowrap;">{{ a.timestamp }}</td>
+            <td><strong>{{ a.username }}</strong></td>
+            <td style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ a.activity }}">{{ a.activity }}</td>
+            <td><span class="badge badge-info">{{ a.mitre_id }}</span></td>
+            <td style="color:{% if a.risk_score >= 80 %}var(--red){% elif a.risk_score >= 40 %}var(--yellow){% else %}var(--green){% endif %};">{{ a.risk_score }}</td>
+            <td><span class="badge badge-{{ a.threat_level|lower }}">{{ a.threat_level }}</span></td>
+            <td style="color:var(--cyan);">{{ a.trust_score }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-        <!-- ACTIVITY AUDIT LOG TABLE WITH LIVE SEARCH & FILTER -->
-        <section class="section">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;">
-                <h3 class="section-title" style="margin-bottom: 0;">
-                    <span>🚨</span> Real-Time Security Incident &amp; Audit Feed
-                </h3>
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    <a href="{{ url_for('admin_export_csv') }}" class="btn btn-cyan btn-sm">
-                        📥 Export CSV
-                    </a>
-                    <a href="{{ url_for('admin_export_json') }}" class="btn btn-outline btn-sm">
-                        📥 Export JSON (SIEM)
-                    </a>
-                </div>
-            </div>
+</div>
 
-            <!-- LIVE SEARCH & FILTER CONTROLS -->
-            <div style="display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; align-items: center;">
-                <div style="flex: 1; min-width: 260px;">
-                    <input
-                        type="text"
-                        id="logSearchInput"
-                        placeholder="🔍 Search by user, event, or severity..."
-                        style="width: 100%; padding: 9px 14px; background: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.88rem; font-family: var(--font-sans);"
-                    >
-                </div>
-                <div style="display: flex; gap: 6px;">
-                    <button type="button" class="btn btn-sm btn-cyan filter-btn active" data-filter="all" onclick="filterLogs('all', this)">
-                        All Events
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline filter-btn" data-filter="critical" onclick="filterLogs('Critical', this)">
-                        🔴 Critical
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline filter-btn" data-filter="suspicious" onclick="filterLogs('Suspicious', this)">
-                        🟠 Suspicious
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline filter-btn" data-filter="normal" onclick="filterLogs('Normal', this)">
-                        🟢 Normal
-                    </button>
-                </div>
-            </div>
+<script>
+// ── Google Maps — Global User Map ──
+var adminMap, safeCircle, safeMarker;
+var mapUsers = [];
 
-            {% if activities %}
-                <div class="table-container">
-                    <table id="auditTable">
-                        <thead>
-                            <tr>
-                                <th>Timestamp</th>
-                                <th>User</th>
-                                <th>Security Event</th>
-                                <th>MITRE ID</th>
-                                <th>Risk Score</th>
-                                <th>Threat Level</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for act in activities %}
-                                <tr class="log-row" data-severity="{{ act.threat_level }}">
-                                    <td style="color: var(--text-muted); font-size: 0.82rem; white-space: nowrap; font-family: var(--font-mono);">
-                                        {{ act.timestamp if act.timestamp else 'Recently' }}
-                                    </td>
-                                    <td>
-                                        <strong>{{ act.username }}</strong>
-                                    </td>
-                                    <td>{{ act.activity }}</td>
-                                    <td>
-                                        <span style="background: #10b981; color: #000; padding: 2px 8px; border-radius: 4px; font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.03em;">
-                                            {{ act.mitre_id }}
-                                        </span>
-                                    </td>
-                                    <td><span style="font-family: var(--font-mono); font-weight: 700;">{{ act.risk_score }}/100</span></td>
-                                    <td>
-                                        {% if act.threat_level == "Normal" %}
-                                            <span class="status normal">🟢 Normal</span>
-                                        {% elif act.threat_level == "Suspicious" %}
-                                            <span class="status suspicious">🟠 Suspicious</span>
-                                        {% else %}
-                                            <span class="status critical">🔴 Critical</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-                <div id="noMatchMessage" style="display: none; color: var(--text-muted); text-align: center; padding: 24px; font-family: var(--font-mono);">
-                    No security events match your search or filter.
-                </div>
-            {% else %}
-                <p style="color: var(--text-secondary);">No security events recorded yet.</p>
-            {% endif %}
-        </section>
-    </main>
+function initAdminMap() {
+  const defaultCenter = { lat: 32.7266, lng: 74.8570 };
+  adminMap = new google.maps.Map(document.getElementById("admin-map"), {
+    center: defaultCenter, zoom: 5,
+    styles: [
+      { elementType:"geometry", stylers:[{color:"#0a0f1e"}] },
+      { elementType:"labels.text.fill", stylers:[{color:"#8899bb"}] },
+      { elementType:"labels.text.stroke", stylers:[{color:"#05070f"}] },
+      { featureType:"administrative", elementType:"geometry", stylers:[{color:"#1a2545"}] },
+      { featureType:"road", elementType:"geometry", stylers:[{color:"#1a2545"}] },
+      { featureType:"water", elementType:"geometry", stylers:[{color:"#0d1a2e"}] },
+      { featureType:"poi", stylers:[{visibility:"off"}] },
+      { featureType:"transit", stylers:[{visibility:"off"}] }
+    ]
+  });
 
-    <script>
-        // 1. Chart.js Threat Distribution Doughnut
-        const ctx = document.getElementById('threatChart').getContext('2d');
-        const threatChart = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Normal Events', 'Suspicious Anomalies', 'Critical Threats'],
-                datasets: [{
-                    data: [
-                        {{ stats.normal_events }},
-                        {{ stats.suspicious_events }},
-                        {{ stats.critical_events }}
-                    ],
-                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
-                    borderColor: '#09090b',
-                    borderWidth: 3
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            color: '#94a3b8',
-                            font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 },
-                            padding: 16
-                        }
-                    }
-                }
-            }
+  // Click to set safe zone center
+  adminMap.addListener("click", function(e) {
+    document.getElementById("szLat").value = e.latLng.lat().toFixed(6);
+    document.getElementById("szLng").value = e.latLng.lng().toFixed(6);
+    drawSafeCircle();
+  });
+
+  loadAllLocations();
+}
+
+function drawSafeCircle() {
+  const lat = parseFloat(document.getElementById("szLat").value);
+  const lng = parseFloat(document.getElementById("szLng").value);
+  const rad = parseFloat(document.getElementById("szRadius").value) * 1000;
+  if (safeCircle) safeCircle.setMap(null);
+  if (safeMarker) safeMarker.setMap(null);
+  safeCircle = new google.maps.Circle({
+    map: adminMap, center:{lat,lng}, radius: rad,
+    fillColor:"#00ff88", fillOpacity:0.07,
+    strokeColor:"#00ff88", strokeOpacity:0.6, strokeWeight:2
+  });
+  safeMarker = new google.maps.Marker({
+    position:{lat,lng}, map: adminMap,
+    icon:{path:google.maps.SymbolPath.CIRCLE,scale:7,fillColor:"#00ff88",fillOpacity:0.9,strokeColor:"#00ff88",strokeWeight:2}
+  });
+}
+
+function loadAllLocations() {
+  fetch("/api/admin/all-locations")
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById("mapUserCount").textContent = d.users.length + " users";
+      const sz = d.safe_zone;
+      document.getElementById("szLat").value = sz.lat;
+      document.getElementById("szLng").value = sz.lng;
+      document.getElementById("szRadius").value = sz.radius_km;
+      document.getElementById("radiusVal").textContent = sz.radius_km;
+      document.getElementById("szCity").value = sz.city;
+      drawSafeCircle();
+
+      d.users.forEach(u => {
+        const inZone = u.in_safe_zone;
+        const color = u.role === "admin" ? "#00c8ff" : (inZone ? "#ffcc00" : "#ff3366");
+        const marker = new google.maps.Marker({
+          position:{lat:u.lat, lng:u.lng}, map:adminMap,
+          icon:{path:google.maps.SymbolPath.CIRCLE, scale:8, fillColor:color, fillOpacity:0.9, strokeColor:color, strokeWeight:2},
+          title: u.username
         });
+        const info = new google.maps.InfoWindow({
+          content:`<div style="background:#0a0f1e;color:#e2e8f7;padding:10px;border-radius:8px;font-family:monospace;font-size:12px;min-width:160px;">
+            <strong style="color:${color};">${u.role === "admin" ? "🔵" : (inZone?"🟡":"🔴")} ${u.username}</strong><br>
+            📍 ${u.location}<br>
+            🛡️ Trust: ${u.trust_score} · ${u.distance_km} km from zone<br>
+            ${inZone ? '<span style="color:#00ff88;">✅ In Safe Zone</span>' : '<span style="color:#ff3366;">🚨 Outside Safe Zone</span>'}<br>
+            🕒 ${u.last_login_time}
+          </div>`
+        });
+        marker.addListener("click", () => info.open(adminMap, marker));
+      });
+    });
+}
 
-        // 2. Interactive Policy Updating
-        async function savePolicies(e) {
-            e.preventDefault();
-            const payload = {
-                mfa_threshold: document.getElementById('policy_mfa').value,
-                max_failed_attempts: document.getElementById('policy_max_failed').value,
-                auto_quarantine_enabled: document.getElementById('policy_auto_quarantine').checked ? '1' : '0',
-                canary_trap_active: document.getElementById('policy_canary').checked ? '1' : '0',
-                threat_intel_enabled: document.getElementById('policy_threat_intel').checked ? '1' : '0'
-            };
+document.getElementById("szRadius").addEventListener("input", drawSafeCircle);
 
-            try {
-                const res = await fetch("{{ url_for('admin_policies_update') }}", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                if (data.success) {
-                    const badge = document.getElementById('policyStatusBadge');
-                    badge.style.display = 'inline';
-                    setTimeout(() => { badge.style.display = 'none'; }, 3500);
-                }
-            } catch (err) {
-                console.error("Failed to update policies", err);
-            }
-        }
+function saveSafeZone() {
+  const data = {
+    safe_zone_lat: parseFloat(document.getElementById("szLat").value),
+    safe_zone_lng: parseFloat(document.getElementById("szLng").value),
+    safe_zone_radius_km: parseFloat(document.getElementById("szRadius").value),
+    safe_zone_city: document.getElementById("szCity").value,
+    safe_zone_enabled: document.getElementById("szEnabled").value
+  };
+  fetch("/api/admin/safe-zone/update", {
+    method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)
+  }).then(r=>r.json()).then(d=>{
+    const el = document.getElementById("szSaveMsg");
+    if(d.success) { el.style.color="var(--green)"; el.textContent="✅ Safe zone saved!"; }
+    else { el.style.color="var(--red)"; el.textContent="❌ Error saving"; }
+    drawSafeCircle();
+  });
+}
 
-        // 3. Client-side instant search & filter
-        let currentFilter = 'all';
-        const searchInput = document.getElementById('logSearchInput');
-        const noMatch = document.getElementById('noMatchMessage');
+function savePolicies() {
+  const keys = ["mfa_threshold","max_failed_attempts","auto_quarantine_enabled","canary_trap_active","threat_intel_enabled"];
+  const data = {};
+  keys.forEach(k => { const el = document.getElementById("pol_"+k); if(el) data[k] = el.value; });
+  fetch("/admin/policies/update", {
+    method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)
+  }).then(r=>r.json()).then(d=>{
+    const el = document.getElementById("polSaveMsg");
+    if(d.success) { el.style.color="var(--green)"; el.textContent="✅ Policies saved!"; }
+    else { el.style.color="var(--red)"; el.textContent="❌ Error"; }
+  });
+}
 
-        function filterLogs(filterType, btnElem) {
-            currentFilter = filterType;
-            document.querySelectorAll('.filter-btn').forEach(b => {
-                b.classList.remove('btn-cyan');
-                b.classList.add('btn-outline');
-            });
-            if (btnElem) {
-                btnElem.classList.remove('btn-outline');
-                btnElem.classList.add('btn-cyan');
-            }
-            applyFilters();
-        }
-
-        if (searchInput) {
-            searchInput.addEventListener('input', applyFilters);
-        }
-
-        function applyFilters() {
-            const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
-            let visibleCount = 0;
-
-            document.querySelectorAll('.log-row').forEach(row => {
-                const text = row.innerText.toLowerCase();
-                const severity = row.getAttribute('data-severity');
-                const matchesQuery = query === '' || text.includes(query);
-                const matchesFilter = currentFilter === 'all' || severity === currentFilter;
-
-                if (matchesQuery && matchesFilter) {
-                    row.style.display = '';
-                    visibleCount++;
-                } else {
-                    row.style.display = 'none';
-                }
-            });
-
-            if (noMatch) {
-                noMatch.style.display = visibleCount === 0 ? 'block' : 'none';
-            }
-        }
-
-        // 4. Real-Time Telemetry Live Feed (Every 6 seconds)
-        let lastLoggedEventCount = {{ stats.total_events }};
-        setInterval(async () => {
-            try {
-                const res = await fetch("{{ url_for('admin_live_feed') }}");
-                if (!res.ok) return;
-                const data = await res.json();
-
-                if (data.stats && data.stats.total_events > lastLoggedEventCount) {
-                    lastLoggedEventCount = data.stats.total_events;
-                    threatChart.data.datasets[0].data = [
-                        data.stats.normal_events,
-                        data.stats.suspicious_events,
-                        data.stats.critical_events
-                    ];
-                    threatChart.update();
-                }
-            } catch (err) {
-                // Silent background poll catch
-            }
-        }, 6000);
-    </script>
-
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+// Live feed auto-refresh
+function refreshFeed() {
+  fetch("/api/admin/live-feed").then(r=>r.json()).then(d=>{
+    document.getElementById("lastRefresh").textContent = d.timestamp;
+    const tbody = document.getElementById("liveTable");
+    tbody.innerHTML = d.activities.map(a=>`
+      <tr>
+        <td style="color:var(--text-muted);">${a.id}</td>
+        <td style="font-size:0.68rem;color:var(--text-secondary);white-space:nowrap;">${a.timestamp}</td>
+        <td><strong>${a.username}</strong></td>
+        <td style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${a.activity}">${a.activity}</td>
+        <td><span class="badge badge-info">${a.mitre_id||"T1078"}</span></td>
+        <td style="color:${a.risk_score>=80?"var(--red)":a.risk_score>=40?"var(--yellow)":"var(--green)"};">${a.risk_score}</td>
+        <td><span class="badge badge-${(a.threat_level||"Normal").toLowerCase()}">${a.threat_level}</span></td>
+        <td style="color:var(--cyan);">${a.trust_score||"—"}</td>
+      </tr>`).join("");
+  });
+}
+setInterval(refreshFeed, 10000);
+refreshFeed();
+</script>
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initAdminMap"></script>
 </body>
 </html>

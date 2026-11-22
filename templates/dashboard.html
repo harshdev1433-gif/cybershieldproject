@@ -1,1271 +1,386 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CyberShield | User SOC Dashboard</title>
-    
-    <!-- GOOGLE FONTS -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    
-    <!-- PWA MANIFEST & THEME -->
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    <meta name="theme-color" content="#09090b">
-
-    <!-- LEAFLET.JS FOR CYBER MAP -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CyberShield — {{ username }} Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/cybershield.css">
 </head>
 <body>
 
-    <!-- =====================================================
-         NAVIGATION / HEADER
-         ===================================================== -->
-    <header class="header">
-        <div class="nav">
-            <div class="brand-logo">
-                <span style="font-size: 1.8rem;">🛡️</span>
-                <div>
-                    <h1>CyberShield</h1>
-                    <p class="brand-tagline">Continuous Zero-Trust Behaviour Monitoring</p>
-                </div>
-            </div>
+<!-- ── Navbar ── -->
+<nav class="navbar">
+  <a class="navbar-brand" href="/dashboard/{{ username }}">
+    <span class="shield-icon">🛡️</span> CYBERSHIELD
+    <span style="margin-left:8px;font-size:0.6rem;color:var(--text-muted);font-weight:400;">SOC PLATFORM</span>
+  </a>
+  <div class="nav-links">
+    <span style="font-size:0.72rem;color:var(--text-secondary);">👤 {{ username }}</span>
+    <div class="notif-bell" onclick="toggleNotif()">
+      🔔
+      {% set unread = notifications|selectattr("is_read","eq",0)|list|length %}
+      {% if unread > 0 %}<span class="notif-count">{{ unread }}</span>{% endif %}
+    </div>
+    {% if session.get("role") == "admin" %}
+    <a href="/admin" class="nav-link">⚙️ SOC Admin</a>
+    {% endif %}
+    <a href="/logout" class="btn btn-danger btn-sm">🔓 Logout</a>
+  </div>
+</nav>
 
-            <div class="nav-links">
-                <!-- LIVE SOC CLOCK BEACON -->
-                <span class="live-clock" style="font-family: var(--font-mono); font-size: 0.78rem; color: #10b981; background: #16161b; padding: 5px 11px; border-radius: 6px; border: 1px solid var(--border-color); display: flex; align-items: center; gap: 6px;">
-                    <span class="pulse-dot"></span>
-                    --:--:-- UTC+5:30
-                </span>
+<!-- Notification Panel -->
+<div class="notif-panel" id="notifPanel">
+  <div class="card-header">🔔 Security Alerts</div>
+  {% if notifications %}
+    {% for n in notifications %}
+    <div class="notif-item severity-{{ n.severity }}">
+      <div class="notif-title">{{ n.title }}</div>
+      <div class="notif-msg">{{ n.message }}</div>
+      <div style="font-size:0.65rem;color:var(--text-muted);margin-top:4px;">{{ n.timestamp }}</div>
+    </div>
+    {% endfor %}
+  {% else %}
+    <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:0.78rem;">No alerts</div>
+  {% endif %}
+</div>
 
-                <!-- PWA DESKTOP INSTALL BUTTON -->
-                <button id="installAppBtn" class="btn btn-install btn-sm" style="display: none;" onclick="triggerPWAInstall()">
-                    💻 Install Desktop App
-                </button>
+<div class="main-container">
 
-                <!-- NOTIFICATION BELL -->
-                <div class="notif-wrapper">
-                    <button class="notif-btn" onclick="toggleNotifications()" title="Security Alerts">
-                        🔔
-                        {% if notifications and notifications|selectattr('is_read', 'equalto', 0)|list|length > 0 %}
-                            <span class="notif-badge">
-                                {{ notifications|selectattr('is_read', 'equalto', 0)|list|length }}
-                            </span>
-                        {% endif %}
-                    </button>
-                    <div id="notifDropdown" class="notif-dropdown">
-                        <div class="notif-header">
-                            <span>🛡️ Security Notifications</span>
-                            <span style="font-size: 0.75rem; color: var(--text-muted);">Recent Alerts</span>
-                        </div>
-                        {% if notifications %}
-                            {% for n in notifications %}
-                                <div class="notif-item {{ n.severity }} {% if n.is_read == 0 %}unread{% endif %}">
-                                    <div style="font-weight: 600; color: {% if n.severity == 'critical' %}#f87171{% elif n.severity == 'warning' %}#fbbf24{% else %}#10b981{% endif %};">
-                                        {{ n.title }}
-                                    </div>
-                                    <div style="color: var(--text-secondary); margin-top: 3px;">
-                                        {{ n.message }}
-                                    </div>
-                                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">
-                                        {{ n.timestamp }}
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        {% else %}
-                            <div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
-                                No recent security incidents.
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
+  <!-- ── Page Header ── -->
+  <div class="flex-between mb-3">
+    <div>
+      <h2 style="font-size:1.3rem;color:var(--cyan);">📊 Security Dashboard</h2>
+      <p style="font-size:0.72rem;color:var(--text-secondary);margin-top:4px;">
+        <span class="pulse-dot"></span>Real-time Zero-Trust Monitoring · {{ username }}
+      </p>
+    </div>
+    <form method="POST" action="/emergency-kill/{{ username }}" style="margin:0;">
+      <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Activate Emergency Kill Switch?')">
+        🚨 Emergency Kill Switch
+      </button>
+    </form>
+  </div>
 
-                <div class="user-badge">
-                    <span>👤</span>
-                    <strong>{{ username }}</strong>
-                </div>
+  <!-- ── Top Stats Row ── -->
+  <div class="grid-4 mb-3">
+    <div class="stat-tile">
+      <div class="stat-label">Trust Score</div>
+      <div class="stat-value {% if trust_score >= 70 %}text-green{% elif trust_score >= 40 %}text-yellow{% else %}text-red{% endif %}">
+        {{ trust_score }}
+      </div>
+      <div class="stat-sub">/ 100 · Zero-Trust Rating</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Last Login</div>
+      <div class="stat-value text-cyan" style="font-size:1rem;line-height:1.3;padding-top:6px;">{{ last_location }}</div>
+      <div class="stat-sub">{{ user.last_login_time or "No previous login" }}</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Baseline Device</div>
+      <div class="stat-value text-purple" style="font-size:1rem;line-height:1.3;padding-top:6px;">{{ usual_device[:18] }}</div>
+      <div class="stat-sub">{{ usual_login_time }} usual login time</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-label">Safe Zone</div>
+      <div class="stat-value text-green" style="font-size:1rem;line-height:1.3;padding-top:6px;" id="zone-status-val">Checking...</div>
+      <div class="stat-sub" id="zone-dist-sub">{{ safe_zone.city }} · {{ safe_zone.radius_km|int }} km radius</div>
+    </div>
+  </div>
 
-                <a href="{{ url_for('logout') }}" class="btn btn-outline btn-sm">
-                    Logout
-                </a>
-            </div>
+  <!-- ── Main Grid: Gauge + Map ── -->
+  <div class="grid-2 mb-3">
+
+    <!-- Trust Gauge Card -->
+    <div class="card">
+      <div class="card-header">🎯 Trust Score Gauge</div>
+      <div class="card-body" style="display:flex;flex-direction:column;align-items:center;gap:16px;">
+        <div class="trust-gauge-wrap">
+          <svg width="140" height="140" viewBox="0 0 140 140">
+            <circle class="trust-track" cx="70" cy="70" r="56"/>
+            <circle class="trust-bar" cx="70" cy="70" r="56"
+              id="trustArc"
+              stroke-dasharray="351.86"
+              stroke-dashoffset="{{ 351.86 * (1 - trust_score / 100) }}"
+              stroke="{% if trust_score >= 70 %}#00ff88{% elif trust_score >= 40 %}#ffcc00{% else %}#ff3366{% endif %}"/>
+          </svg>
+          <div class="trust-label">
+            <span style="color:{% if trust_score >= 70 %}var(--green){% elif trust_score >= 40 %}var(--yellow){% else %}var(--red){% endif %}">{{ trust_score }}</span>
+            <small>TRUST</small>
+          </div>
         </div>
-    </header>
-
-    <!-- =====================================================
-         MAIN CONTAINER
-         ===================================================== -->
-    <main class="container">
-
-        <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 16px;">
-            <div>
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-                    <h2 style="margin-bottom: 0;">Welcome, {{ username }}</h2>
-                    <span class="status normal" style="font-size: 0.75rem; padding: 2px 10px;">
-                        <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10b981; box-shadow: 0 0 6px #10b981;"></span>
-                        Verified Student Session
-                    </span>
-                </div>
-                <p class="page-subtitle" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                    <span>🎓 <strong>Roll No:</strong> CS-2022-8491</span>
-                    <span>•</span>
-                    <span>🏛️ <strong>Program:</strong> B.Tech CSE (Cybersecurity & Digital Forensics)</span>
-                    <span>•</span>
-                    <span>📍 <strong>Campus:</strong> {{ usual_location }} Main Campus</span>
-                </p>
-            </div>
-            
-            <!-- EMERGENCY KILL SWITCH -->
-            <form method="POST" action="{{ url_for('emergency_kill', username=username) }}" onsubmit="return confirm('🚨 ENGAGE EMERGENCY KILL SWITCH?\nThis will immediately restrict your session, penalize trust score, and lock down sensitive resources.');">
-                <button type="submit" class="btn btn-kill-switch btn-sm">
-                    🚨 Emergency Session Kill Switch
-                </button>
-            </form>
+        <div style="width:100%;">
+          <div style="display:flex;justify-content:space-between;font-size:0.7rem;margin-bottom:6px;">
+            <span>Baseline Location</span>
+            <span style="color:var(--cyan);">{{ usual_location }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.7rem;margin-bottom:6px;">
+            <span>Baseline Device</span>
+            <span style="color:var(--cyan);">{{ usual_device }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.7rem;margin-bottom:6px;">
+            <span>File Access Level</span>
+            <span style="color:var(--cyan);">{{ normal_file_access }}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:0.7rem;">
+            <span>Usual Login Time</span>
+            <span style="color:var(--cyan);">{{ usual_login_time }}</span>
+          </div>
         </div>
-
-        <!-- =================================================
-             TOP STATUS CARDS (WITH LIVE RADAR SCANNER)
-             ================================================= -->
-        <div class="cards">
-            <!-- RADAR STATUS -->
-            <div class="card glass-panel" style="display: flex; align-items: center; justify-content: space-between;">
-                <div>
-                    <h3><span>🟢</span> Active Protection</h3>
-                    <div class="number" style="color: var(--color-normal); font-size: 1.6rem;">
-                        Armed
-                    </div>
-                    <p>Live telemetry scanning</p>
-                </div>
-                <!-- LIVE RADAR WIDGET -->
-                <div class="radar-container" title="Continuous Zero-Trust Radar Active">
-                    <div class="radar-circle c1"></div>
-                    <div class="radar-circle c2"></div>
-                    <div class="radar-sweep"></div>
-                    <div class="radar-blip"></div>
-                </div>
-            </div>
-
-            <!-- CIRCULAR TRUST GAUGE CARD -->
-            <div class="card glass-panel" style="padding: 16px 20px;">
-                <div class="trust-gauge-hero">
-                    <div class="trust-gauge-circle-wrap">
-                        <svg class="trust-gauge-svg" viewBox="0 0 100 100">
-                            <circle class="trust-gauge-bg" cx="50" cy="50" r="42"></circle>
-                            <circle class="trust-gauge-progress" cx="50" cy="50" r="42"
-                                stroke="{% if trust_score >= 70 %}#10b981{% elif trust_score >= 40 %}#f59e0b{% else %}#ef4444{% endif %}"
-                                stroke-dasharray="264"
-                                stroke-dashoffset="{{ 264 - (264 * trust_score / 100) }}"></circle>
-                        </svg>
-                        <div class="trust-gauge-label">
-                            <div class="trust-gauge-val">{{ trust_score }}</div>
-                            <div class="trust-gauge-max">/ 100</div>
-                        </div>
-                    </div>
-                    <div class="trust-posture-details">
-                        <h3 style="margin-bottom: 2px; font-size: 0.95rem;">Trust Assurance</h3>
-                        <div>
-                            {% if trust_score >= 70 %}
-                                <span class="status normal" style="font-size: 0.72rem; padding: 2px 8px;">🟢 Grade A • Trusted</span>
-                            {% elif trust_score >= 40 %}
-                                <span class="status suspicious" style="font-size: 0.72rem; padding: 2px 8px;">🟠 Grade C • Step-Up Gate</span>
-                            {% else %}
-                                <span class="status critical" style="font-size: 0.72rem; padding: 2px 8px;">🔴 Grade F • Quarantined</span>
-                            {% endif %}
-                        </div>
-                        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">
-                            Dynamic CARTA Score
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- MONITORING -->
-            <div class="card glass-panel">
-                <h3><span>🔍</span> UEBA Engine</h3>
-                <div class="number" style="color: var(--color-cyan); font-size: 1.6rem;">
-                    Correlating
-                </div>
-                <p>Anomaly detection live</p>
-            </div>
-
-            <!-- RECENT EVENTS COUNT -->
-            <div class="card glass-panel">
-                <h3><span>📋</span> Audited Events</h3>
-                <div class="number">
-                    {{ activities|length }}
-                </div>
-                <p>Recorded session events</p>
-            </div>
+        {% if trust_score < 60 %}
+        <div class="alert alert-warning w-full" style="margin:0;text-align:center;">
+          ⚠️ Trust below threshold — MFA enforced
         </div>
+        {% endif %}
+      </div>
+    </div>
 
-        <!-- =================================================
-             DYNAMIC TRUST SCORE PROGRESS
-             ================================================= -->
-        <section class="section glass-panel">
-            <h3 class="section-title">
-                <span>🛡️</span> Continuous Zero-Trust Score
-            </h3>
-            <p class="section-desc">
-                Your score adapts to session events in real time. Anomalies and failed verifications drop trust; safe actions rebuild it.
-            </p>
+    <!-- Google Map Card -->
+    <div class="card">
+      <div class="card-header" style="justify-content:space-between;">
+        <span>🗺️ Login Location Map</span>
+        <span id="map-zone-badge" class="badge badge-info">Loading...</span>
+      </div>
+      <div class="card-body" style="padding:12px;">
+        <div id="map-panel"></div>
+        <div class="zone-status-bar zone-unknown" id="zone-bar" style="margin-top:10px;">
+          📡 Checking safe zone status...
+        </div>
+        <div style="display:flex;gap:10px;margin-top:10px;font-size:0.68rem;color:var(--text-secondary);">
+          <span>🔵 Your login location</span>
+          <span>🟢 Safe zone boundary</span>
+        </div>
+      </div>
+    </div>
 
-            <div class="trust-meter-wrapper">
-                <div class="trust-meter-bar {% if trust_score >= 70 %}trust-green{% elif trust_score >= 40 %}trust-orange{% else %}trust-red{% endif %}"
-                     style="width: {{ trust_score }}%;">
-                    {{ trust_score }}%
-                </div>
+  </div>
+
+  <!-- ── File Vault + Activity Log ── -->
+  <div class="grid-2 mb-3">
+
+    <!-- Activity Feed -->
+    <div class="card">
+      <div class="card-header">📋 Recent Security Events</div>
+      <div class="card-body" style="padding:12px 20px;">
+        {% if activities %}
+          {% for a in activities[:10] %}
+          <div class="activity-row">
+            <div class="activity-icon icon-{{ a.threat_level|lower }}">
+              {% if a.threat_level == "Critical" %}🚨
+              {% elif a.threat_level == "Suspicious" %}⚠️
+              {% else %}✅{% endif %}
             </div>
-
-            <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;">
-                <span>0 (Quarantined)</span>
-                <span>60 (Step-Up MFA Challenge)</span>
-                <span>100 (Full Zero-Trust Assurance)</span>
+            <div class="activity-text">
+              <div class="activity-title" title="{{ a.activity }}">{{ a.activity }}</div>
+              <div class="activity-meta">
+                <span class="badge badge-{{ a.threat_level|lower }}">{{ a.threat_level }}</span>
+                &nbsp;Risk: {{ a.risk_score }}
+                &nbsp;·&nbsp;<span style="color:var(--cyan);">{{ a.mitre_id }}</span>
+                &nbsp;·&nbsp;{{ a.timestamp }}
+              </div>
             </div>
-        </section>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div style="text-align:center;padding:30px;color:var(--text-muted);font-size:0.78rem;">No activity recorded yet.</div>
+        {% endif %}
+      </div>
+    </div>
 
-        <!-- =================================================
-             INTERACTIVE GEOLOCATION MAP (SOC MAP)
-             ================================================= -->
-        <section class="section glass-panel">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;">
-                <h3 class="section-title" style="margin-bottom: 0;">
-                    <span>🗺️</span> Real-Time Geolocation & Threat Map
-                </h3>
-                <div style="font-size: 0.85rem; color: var(--text-secondary); display: flex; gap: 14px;">
-                    <span>🟢 Baseline: <strong style="color: var(--color-normal);">{{ usual_location }}</strong></span>
-                    <span>🔴 Detected: <strong style="color: var(--color-cyan);">{{ user.last_login_location if user.last_login_location else usual_location }}</strong></span>
-                </div>
-            </div>
-
-            <!-- MAP CONTAINER -->
-            <div id="socMap" style="width: 100%; height: 320px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); overflow: hidden;"></div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 0.8rem; color: var(--text-muted);">
-                <span>Tactical Dark-Matter Map • High-Precision Browser Telemetry</span>
-                <span id="geoStatusBadge" class="status normal">🟢 Baseline Geofence Respected</span>
-            </div>
-        </section>
-
-        <!-- =================================================
-             BEHAVIOUR FINGERPRINT (BASELINE) & LIVE TELEMETRY
-             ================================================= -->
-        <section class="section glass-panel">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                <div>
-                    <h3 class="section-title" style="margin-bottom: 4px;">
-                        <span>🧠</span> Behavioural Fingerprint Baseline vs Live Telemetry
-                    </h3>
-                    <p class="section-desc" style="margin-bottom: 0;">
-                        Continuous mathematical correlation comparing your authenticated session against established UEBA baseline vectors.
-                    </p>
-                </div>
-                <span class="status normal">
-                    <span class="pulse-dot"></span>
-                    UEBA Matrix Active
-                </span>
-            </div>
-
-            <div class="baseline-grid">
-                <div class="baseline-card">
-                    <div class="baseline-header">
-                        <span class="baseline-title">⏰ Access Schedule</span>
-                        <span class="baseline-match-chip">Schedule Correlated</span>
-                    </div>
-                    <div class="baseline-comparison-row">
-                        <span class="baseline-val-expected">Baseline: <strong>{{ usual_login_time }}</strong></span>
-                        <span class="baseline-val-actual">Live: <strong>{{ user.last_login_time.split(' ')[1][:5] if user.last_login_time and ' ' in user.last_login_time else 'Active' }}</strong></span>
-                    </div>
-                </div>
-
-                <div class="baseline-card">
-                    <div class="baseline-header">
-                        <span class="baseline-title">💻 Client Hardware</span>
-                        <span class="baseline-match-chip">Fingerprint Match</span>
-                    </div>
-                    <div class="baseline-comparison-row">
-                        <span class="baseline-val-expected">Baseline: <strong>{{ usual_device }}</strong></span>
-                        <span class="baseline-val-actual">Live: <strong>{{ usual_device }}</strong></span>
-                    </div>
-                </div>
-
-                <div class="baseline-card">
-                    <div class="baseline-header">
-                        <span class="baseline-title">📍 Access Geolocation</span>
-                        <span class="baseline-match-chip">Geofence Respected</span>
-                    </div>
-                    <div class="baseline-comparison-row">
-                        <span class="baseline-val-expected">Baseline: <strong>{{ usual_location }}</strong></span>
-                        <span class="baseline-val-actual">Live: <strong>{{ user.last_login_location if user.last_login_location else usual_location }}</strong></span>
-                    </div>
-                </div>
-
-                <div class="baseline-card">
-                    <div class="baseline-header">
-                        <span class="baseline-title">📁 File Throughput</span>
-                        <span class="baseline-match-chip">Normal Band</span>
-                    </div>
-                    <div class="baseline-comparison-row">
-                        <span class="baseline-val-expected">Baseline: <strong>{{ normal_file_access }} Band</strong></span>
-                        <span class="baseline-val-actual">Live: <strong>Monitored</strong></span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- LIVE TELEMETRY & REGISTERED DETAILS -->
-            <div style="margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border-color); display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; font-size: 0.88rem;">
-                <div>
-                    <span style="color: var(--text-muted); display: block; font-size: 0.75rem; text-transform: uppercase;">Registered Email (OTP Target)</span>
-                    <strong style="color: var(--color-cyan);">{{ user.email if user.email else 'None' }}</strong>
-                </div>
-                <div>
-                    <span style="color: var(--text-muted); display: block; font-size: 0.75rem; text-transform: uppercase;">Contact Number</span>
-                    <strong style="color: var(--text-primary);">{{ user.phone if user.phone else 'Not provided' }}</strong>
-                </div>
-                <div>
-                    <span style="color: var(--text-muted); display: block; font-size: 0.75rem; text-transform: uppercase;">Last Detected Geolocation</span>
-                    <strong style="color: var(--color-normal);">📍 {{ user.last_login_location if user.last_login_location else usual_location }}</strong>
-                </div>
-                <div>
-                    <span style="color: var(--text-muted); display: block; font-size: 0.75rem; text-transform: uppercase;">Last Authenticated At</span>
-                    <strong style="color: var(--text-secondary);">⏰ {{ user.last_login_time if user.last_login_time else 'Active session' }}</strong>
-                </div>
-            </div>
-        </section>
-
-        <!-- =================================================
-             STUDENT ACADEMIC RECORDS & DECEPTION HONEYTOKEN VAULT
-             ================================================= -->
-        <section class="section glass-panel" style="border-left: 4px solid var(--color-normal);">
-            <div class="doc-vault-header">
-                <div>
-                    <h3 class="section-title" style="margin-bottom: 4px;">
-                        <span>📁</span> Institutional Document Center & Academic Repository
-                    </h3>
-                    <p class="section-desc" style="margin-bottom: 0;">
-                        Official academic credentials, coursework records, student submissions, and institutional administrative assets.
-                    </p>
-                </div>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <span class="hint-badge" style="background: rgba(16, 185, 129, 0.12); border-color: rgba(16, 185, 129, 0.3); color: #10b981;">
-                        🎓 Student Portfolio Verified
-                    </span>
-                    <span class="hint-badge" style="background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.15); color: #ffffff;">
-                        🔒 Tiered Access Control
-                    </span>
-                </div>
-            </div>
-
-            <!-- CONTROLS: CATEGORY TABS & LIVE SEARCH -->
-            <div class="doc-controls-bar">
-                <div class="doc-tabs">
-                    <button type="button" class="doc-tab-btn active" onclick="filterDocs('all', this)">
-                        <span>📂 All Files</span>
-                        <span class="doc-tab-count" id="countAll">17</span>
-                    </button>
-                    <button type="button" class="doc-tab-btn" onclick="filterDocs('academic', this)">
-                        <span>🎓 Academic & Institution</span>
-                        <span class="doc-tab-count" id="countAcademic">7</span>
-                    </button>
-                    <button type="button" class="doc-tab-btn" onclick="filterDocs('project', this)">
-                        <span>💻 Student Work & Projects</span>
-                        <span class="doc-tab-count" id="countProject">5</span>
-                    </button>
-                    <button type="button" class="doc-tab-btn" onclick="filterDocs('canary', this)">
-                        <span>🔒 Confidential & Administrative</span>
-                        <span class="doc-tab-count" id="countCanary">5</span>
-                    </button>
-                </div>
-
-                <div class="doc-search-wrapper">
-                    <span class="doc-search-icon">🔍</span>
-                    <input type="text" id="docSearchInput" class="doc-search-input" placeholder="Search documents or files..." oninput="searchDocs()">
-                </div>
-            </div>
-
-            <!-- DOCUMENT CARDS GRID -->
-            <div class="doc-grid" id="docGrid">
-
-                <!-- 1. ACADEMIC TRANSCRIPT -->
-                <div class="doc-card" data-category="academic" data-name="Official_Academic_Transcript_Sem6.pdf" data-title="Official Academic Transcript — Semester VI">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-pdf">📄</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">Official_Academic_Transcript_Sem6.pdf</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-academic">Academic</span>
-                                    <span>2.4 MB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--color-emerald);">SGPA: 9.80 (Distinction)</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            Dean of Academics certified semester grade sheet covering Cryptography, Network Security, and Distributed Systems.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('Official_Academic_Transcript_Sem6.pdf')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='Official_Academic_Transcript_Sem6.pdf') }}" class="btn btn-cyan btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 2. TUITION FEE RECEIPT -->
-                <div class="doc-card" data-category="academic" data-name="Tuition_Fee_Receipt_Academic_Year_2025_26.pdf" data-title="Official Tuition & Institutional Fee Receipt">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-pdf">🧾</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">Tuition_Fee_Receipt_Academic_Year_2025_26.pdf</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-academic">Institutional</span>
-                                    <span>480 KB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--color-emerald);">Paid: $4,250.00 (Nil Dues)</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            Bursar & Finance division receipt for tuition, advanced SOC lab quota, and campus infrastructure clearance.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('Tuition_Fee_Receipt_Academic_Year_2025_26.pdf')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='Tuition_Fee_Receipt_Academic_Year_2025_26.pdf') }}" class="btn btn-cyan btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 3. STUDENT IDENTITY CARD -->
-                <div class="doc-card" data-category="academic" data-name="Institutional_Student_Identity_Card.pdf" data-title="Institutional Student Identity & Access Card Record">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-pdf">🪪</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">Institutional_Student_Identity_Card.pdf</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-academic">Institutional</span>
-                                    <span>890 KB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--color-cyan);">CS-2022-8491</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            Campus biometric identity profile, RFID tag record, and 24/7 engineering lab physical access permissions.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('Institutional_Student_Identity_Card.pdf')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='Institutional_Student_Identity_Card.pdf') }}" class="btn btn-cyan btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 4. UNIVERSITY BONAFIDE LETTER -->
-                <div class="doc-card" data-category="academic" data-name="University_Bonafide_Enrollment_Letter.pdf" data-title="University Bonafide Enrollment & Character Certificate">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-pdf">📜</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">University_Bonafide_Enrollment_Letter.pdf</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-academic">Attestation</span>
-                                    <span>310 KB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--color-cyan);">Dean Office</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            Official bonafide verification issued by the Dean of Student Affairs certifying good conduct and academic standing.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('University_Bonafide_Enrollment_Letter.pdf')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='University_Bonafide_Enrollment_Letter.pdf') }}" class="btn btn-cyan btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 5. HOSTEL CLEARANCE PASS -->
-                <div class="doc-card" data-category="academic" data-name="Campus_Hostel_Clearance_Record.pdf" data-title="Campus Hostel Allotment & Security Clearance Record">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-pdf">🏢</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">Campus_Hostel_Clearance_Record.pdf</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-academic">Residential</span>
-                                    <span>520 KB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--text-secondary);">Block C-402</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            Hostel allotment card and night pass clearance authorizing extended hours in the university cybersecurity SOC lab.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('Campus_Hostel_Clearance_Record.pdf')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='Campus_Hostel_Clearance_Record.pdf') }}" class="btn btn-cyan btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 6. CAPSTONE THESIS -->
-                <div class="doc-card" data-category="project" data-name="CyberShield_ZeroTrust_Capstone_Thesis.pdf" data-title="CyberShield Zero-Trust UEBA Capstone Project Thesis">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-pdf">🎓</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">CyberShield_ZeroTrust_Capstone_Thesis.pdf</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-project">Capstone</span>
-                                    <span>5.8 MB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--color-emerald);">Grade: O (Outstanding)</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            Complete B.Tech CSE thesis detailing CARTA Zero-Trust calculus, Haversine impossible travel, and canary deception.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('CyberShield_ZeroTrust_Capstone_Thesis.pdf')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='CyberShield_ZeroTrust_Capstone_Thesis.pdf') }}" class="btn btn-primary btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 7. LAB MANUAL SUBMISSIONS -->
-                <div class="doc-card" data-category="project" data-name="Network_Security_Lab_Manual_Submissions.pdf" data-title="Network Security & Cyber Defense Laboratory Submissions">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-pdf">🔬</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">Network_Security_Lab_Manual_Submissions.pdf</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-project">Lab Work</span>
-                                    <span>3.2 MB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--color-emerald);">Score: 50/50</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            Full 10 practical experiments including Wireshark TLS dissection, Linux iptables firewalls, and Snort rule engineering.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('Network_Security_Lab_Manual_Submissions.pdf')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='Network_Security_Lab_Manual_Submissions.pdf') }}" class="btn btn-primary btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 8. ETHICAL HACKING REPORT -->
-                <div class="doc-card" data-category="project" data-name="Ethical_Hacking_Vulnerability_Audit_Report.pdf" data-title="Ethical Hacking & Vulnerability Assessment Report">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-pdf">🛡️</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">Ethical_Hacking_Vulnerability_Audit_Report.pdf</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-project">Security Audit</span>
-                                    <span>1.9 MB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--color-cyan);">OWASP Top 10</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            Penetration testing audit on campus testbed identifying SQLi, broken access control, and SHA-256 salted hardening.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('Ethical_Hacking_Vulnerability_Audit_Report.pdf')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='Ethical_Hacking_Vulnerability_Audit_Report.pdf') }}" class="btn btn-primary btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 9. DEEP LEARNING NOTEBOOK -->
-                <div class="doc-card" data-category="project" data-name="DeepLearning_Intrusion_Detection_Notebook.ipynb" data-title="Deep Learning Intrusion Detection System (Software 2.0)">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-code">📊</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">DeepLearning_Intrusion_Detection_Notebook.ipynb</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-project">Software 2.0</span>
-                                    <span>840 KB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--color-emerald);">99.42% Precision</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            PyTorch and Scikit-Learn implementation of unsupervised Isolation Forests for continuous behavioral anomaly detection.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('DeepLearning_Intrusion_Detection_Notebook.ipynb')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='DeepLearning_Intrusion_Detection_Notebook.ipynb') }}" class="btn btn-primary btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 10. SOC INTERNSHIP CERTIFICATE -->
-                <div class="doc-card" data-category="project" data-name="Internship_Completion_SOC_Analyst_Letter.pdf" data-title="National Cyber Defense Internship Completion Certificate">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-pdf">🏆</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">Internship_Completion_SOC_Analyst_Letter.pdf</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-project">Internship</span>
-                                    <span>640 KB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--color-emerald);">Rating: 98/100</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            Industrial certificate of completion for 6-month Junior SOC Analyst and threat hunting role at 24/7 security center.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('Internship_Completion_SOC_Analyst_Letter.pdf')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='Internship_Completion_SOC_Analyst_Letter.pdf') }}" class="btn btn-primary btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 11. HONEYTOKEN 1: EXECUTIVE SALARIES -->
-                <div class="doc-card" data-category="canary" data-name="Confidential_Executive_Salaries_2026.xlsx" data-title="Confidential_Executive_Salaries_2026.xlsx">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-xlsx">📑</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">Confidential_Executive_Salaries_2026.xlsx</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-honeytoken">Executive</span>
-                                    <span>1.4 MB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--text-secondary);">Board & Leadership</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            Executive compensation ledger, institutional budget allocation, and annual leadership review schedules.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('Confidential_Executive_Salaries_2026.xlsx')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='Confidential_Executive_Salaries_2026.xlsx') }}" class="btn btn-outline btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 12. HONEYTOKEN 2: LEAKED EXAM PAPERS -->
-                <div class="doc-card" data-category="canary" data-name="Midterm_Exam_Question_Papers_LEAKED_2026.pdf" data-title="Midterm_Exam_Question_Papers_LEAKED_2026.pdf">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-pdf">📄</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">Midterm_Exam_Question_Papers_LEAKED_2026.pdf</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-honeytoken">Academic</span>
-                                    <span>3.1 MB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--text-secondary);">Examination Cell</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            Mid-term examination question repository, evaluation rubrics, and confidential marking keys for Spring semester.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('Midterm_Exam_Question_Papers_LEAKED_2026.pdf')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='Midterm_Exam_Question_Papers_LEAKED_2026.pdf') }}" class="btn btn-outline btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 13. HONEYTOKEN 3: FACULTY GRADING PASSWORDS -->
-                <div class="doc-card" data-category="canary" data-name="Faculty_Grading_Key_Master_Passwords.xlsx" data-title="Faculty_Grading_Key_Master_Passwords.xlsx">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-xlsx">🔑</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">Faculty_Grading_Key_Master_Passwords.xlsx</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-honeytoken">Credentials</span>
-                                    <span>920 KB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--text-secondary);">Faculty Portal</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            Faculty grade submission portal authentication keys and privileged grading administrator access credentials.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('Faculty_Grading_Key_Master_Passwords.xlsx')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='Faculty_Grading_Key_Master_Passwords.xlsx') }}" class="btn btn-outline btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 14. HONEYTOKEN 4: FIREWALL ROOT SSH KEYS -->
-                <div class="doc-card" data-category="canary" data-name="Campus_Firewall_Root_SSH_Private_Keys.pem" data-title="Campus_Firewall_Root_SSH_Private_Keys.pem">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-pem">🛡️</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">Campus_Firewall_Root_SSH_Private_Keys.pem</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-honeytoken">Infrastructure</span>
-                                    <span>4 KB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--text-secondary);">Network Operations</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            Perimeter firewall root SSH configuration keys and datacenter bastion gateway access certificates.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('Campus_Firewall_Root_SSH_Private_Keys.pem')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='Campus_Firewall_Root_SSH_Private_Keys.pem') }}" class="btn btn-outline btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 15. HONEYTOKEN 5: DEAN OFFICE DISCIPLINARY -->
-                <div class="doc-card" data-category="canary" data-name="Dean_Office_Disciplinary_Investigation_Files.pdf" data-title="Dean_Office_Disciplinary_Investigation_Files.pdf">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-pdf">📁</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">Dean_Office_Disciplinary_Investigation_Files.pdf</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-honeytoken">Administration</span>
-                                    <span>2.1 MB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--text-secondary);">Internal Affairs</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            Office of the Dean internal disciplinary inquiry dossiers and academic integrity committee proceedings.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('Dean_Office_Disciplinary_Investigation_Files.pdf')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='Dean_Office_Disciplinary_Investigation_Files.pdf') }}" class="btn btn-outline btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 16. WHITEPAPER -->
-                <div class="doc-card" data-category="academic" data-name="CyberShield_Whitepaper_v2.pdf" data-title="CyberShield_Whitepaper_v2.pdf">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-pdf">📄</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">CyberShield_Whitepaper_v2.pdf</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-academic">Architecture</span>
-                                    <span>2.4 MB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--color-cyan);">Zero-Trust Spec</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            Core technical architecture specification for Gartner CARTA dynamic trust evaluation and UEBA telemetry.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('CyberShield_Whitepaper_v2.pdf')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='CyberShield_Whitepaper_v2.pdf') }}" class="btn btn-outline btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-                <!-- 17. CORPORATE SECURITY STRATEGY -->
-                <div class="doc-card" data-category="academic" data-name="Q3_Corporate_Security_Strategy.pdf" data-title="Q3_Corporate_Security_Strategy.pdf">
-                    <div>
-                        <div class="doc-card-top">
-                            <div class="doc-icon-box doc-icon-pdf">📊</div>
-                            <div class="doc-title-group">
-                                <div class="doc-title">Q3_Corporate_Security_Strategy.pdf</div>
-                                <div class="doc-meta">
-                                    <span class="doc-category-badge doc-category-academic">Compliance</span>
-                                    <span>1.1 MB</span>
-                                    <span>•</span>
-                                    <span style="color: var(--color-cyan);">NIST Guidelines</span>
-                                </div>
-                            </div>
-                        </div>
-                        <p class="doc-desc">
-                            NIST SP 800-207 Zero-Trust implementation guidelines and institutional compliance framework.
-                        </p>
-                    </div>
-                    <div class="doc-card-actions">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="openDocPreview('Q3_Corporate_Security_Strategy.pdf')">
-                            👁️ Preview
-                        </button>
-                        <a href="{{ url_for('download_file', filename='Q3_Corporate_Security_Strategy.pdf') }}" class="btn btn-outline btn-sm">
-                            ⬇️ Download
-                        </a>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- EMPTY SEARCH RESULT STATE -->
-            <div id="noDocsFound" style="display: none; padding: 40px; text-align: center; color: var(--text-muted);">
-                <div style="font-size: 2.2rem; margin-bottom: 8px;">🔍</div>
-                <div style="font-weight: 600; font-size: 1rem; color: var(--text-secondary);">No matching documents found</div>
-                <div style="font-size: 0.85rem; margin-top: 4px;">Try searching for different terms like 'transcript', 'capstone', 'lab', or 'canary'.</div>
-            </div>
-        </section>
-
-        <!-- =================================================
-             DOCUMENT PREVIEW MODAL DIALOG
-             ================================================= -->
-        <div id="docPreviewModal" class="doc-modal-overlay" onclick="handleModalOverlayClick(event)">
-            <div class="doc-modal-dialog">
-                <div class="doc-modal-header">
-                    <div class="doc-modal-title">
-                        <span id="modalIcon">📄</span>
-                        <span id="modalTitle">Document Preview</span>
-                    </div>
-                    <button type="button" class="doc-modal-close" onclick="closeDocModal()" title="Close Preview">✕</button>
-                </div>
-                <div class="doc-modal-body">
-                    <div class="doc-preview-paper">
-                        <div class="doc-watermark" id="modalWatermark">OFFICIAL RECORD</div>
-                        
-                        <div class="doc-letterhead">
-                            <div class="doc-letterhead-logo">🏛️</div>
-                            <div class="doc-letterhead-name" id="modalIssuer">Department of Computer Science & Engineering</div>
-                            <div class="doc-letterhead-sub" id="modalSub">Institutional Academic & Security Repository</div>
-                        </div>
-
-                        <div class="doc-details-grid">
-                            <div class="doc-details-item">
-                                <span>Document File</span>
-                                <strong id="modalFilename">-</strong>
-                            </div>
-                            <div class="doc-details-item">
-                                <span>Security Classification</span>
-                                <strong id="modalClassification" style="color: var(--color-cyan);">-</strong>
-                            </div>
-                            <div class="doc-details-item">
-                                <span>Target User / Student</span>
-                                <strong>{{ username.upper() }} (CS-2022-8491)</strong>
-                            </div>
-                            <div class="doc-details-item">
-                                <span>Certified Date</span>
-                                <strong id="modalDate">-</strong>
-                            </div>
-                        </div>
-
-                        <div class="doc-text-content" id="modalContent">
-                            Loading document contents...
-                        </div>
-                    </div>
-                </div>
-                <div class="doc-modal-footer">
-                    <span style="font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
-                        <span>🔒</span> Integrity: SHA-256 Verified by CyberShield CARTA Engine
-                    </span>
-                    <div style="display: flex; gap: 8px;">
-                        <button type="button" class="btn btn-outline btn-sm" onclick="closeDocModal()">
-                            Close
-                        </button>
-                        <a id="modalDownloadLink" href="#" class="btn btn-cyan btn-sm">
-                            ⬇️ Download Certified Copy
-                        </a>
-                    </div>
-                </div>
-            </div>
+    <!-- Student File Vault -->
+    <div class="card">
+      <div class="card-header">🗂️ Secure File Vault</div>
+      <div class="card-body" style="padding:12px;">
+        <div style="margin-bottom:12px;font-size:0.68rem;color:var(--text-secondary);">
+          <span class="badge badge-info">ℹ️ Honeytoken traps active</span>
+          &nbsp;Access any file — unauthorized assets trigger zero-trust lockdown.
         </div>
 
+        <div style="margin-bottom:12px;">
+          <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-secondary);margin-bottom:8px;">📚 Academic Records</div>
+          {% for fname in ["semester_transcript.pdf","tuition_fee_receipt.pdf","identity_id_card.pdf","bonafide_enrollment.pdf","hostel_clearance.pdf"] %}
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border);font-size:0.76rem;">
+            <span>📄 {{ fname }}</span>
+            <div style="display:flex;gap:6px;">
+              <button onclick="previewDoc('{{ fname }}')" class="btn btn-outline btn-xs">👁 Preview</button>
+              <a href="/download/file/{{ fname }}" class="btn btn-primary btn-xs">⬇ Download</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
 
+        <div style="margin-bottom:12px;">
+          <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-secondary);margin-bottom:8px;">🔬 Student Projects</div>
+          {% for fname in ["capstone_thesis.pdf","lab_manual_experiments.pdf","vulnerability_ethical_hacking.pdf","deeplearning_notebook.ipynb","internship_certificate.pdf"] %}
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border);font-size:0.76rem;">
+            <span>📄 {{ fname }}</span>
+            <div style="display:flex;gap:6px;">
+              <button onclick="previewDoc('{{ fname }}')" class="btn btn-outline btn-xs">👁 Preview</button>
+              <a href="/download/file/{{ fname }}" class="btn btn-primary btn-xs">⬇ Download</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
 
-        <!-- =================================================
-             ACTIVITY HISTORY TABLE (WITH MITRE ATT&CK TAGS)
-             ================================================= -->
-        <section class="section glass-panel">
-            <h3 class="section-title">
-                <span>📊</span> Recent Activity & MITRE ATT&CK Log
-            </h3>
+        <div>
+          <div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-secondary);margin-bottom:8px;">
+            🍯 Restricted Files <span class="badge badge-critical" style="margin-left:4px;">HONEYTOKEN TRAPS</span>
+          </div>
+          {% for fname in ["salary_data.xlsx","admin_passwords.txt","ssh_private_keys.pem","leaked_credentials.csv","firewall_root_config.cfg"] %}
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid rgba(255,51,102,0.15);font-size:0.76rem;background:rgba(255,51,102,0.03);">
+            <span style="color:var(--red);">🚫 {{ fname }}</span>
+            <div style="display:flex;gap:6px;">
+              <button onclick="previewDoc('{{ fname }}')" class="btn btn-outline btn-xs" style="border-color:rgba(255,51,102,0.3);color:var(--red);">👁 Preview</button>
+              <a href="/download/file/{{ fname }}" class="btn btn-danger btn-xs">⬇ Download</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
 
-            {% if activities %}
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Timestamp</th>
-                                <th>Activity / Event</th>
-                                <th>MITRE ID</th>
-                                <th>Risk Score</th>
-                                <th>Threat Level</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for act in activities %}
-                                <tr>
-                                    <td style="color: var(--text-muted); font-size: 0.85rem; font-family: monospace;">
-                                        {{ act.timestamp if act.timestamp else 'Recently' }}
-                                    </td>
-                                    <td>
-                                        <strong>{{ act.activity }}</strong>
-                                    </td>
-                                    <td>
-                                        <span style="background: #10b981; color: #000000; padding: 2px 7px; border-radius: 4px; font-family: monospace; font-size: 0.75rem; font-weight: 700;">
-                                            {{ act.mitre_id }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <strong>{{ act.risk_score }}/100</strong>
-                                    </td>
-                                    <td>
-                                        {% if act.threat_level == "Normal" %}
-                                            <span class="status normal">🟢 Normal</span>
-                                        {% elif act.threat_level == "Suspicious" %}
-                                            <span class="status suspicious">🟠 Suspicious</span>
-                                        {% else %}
-                                            <span class="status critical">🔴 Critical</span>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <p style="color: var(--text-secondary);">No events recorded in session yet.</p>
-            {% endif %}
-        </section>
+  </div>
+</div>
 
-    </main>
+<!-- Document Preview Modal -->
+<div id="docModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);overflow:auto;">
+  <div style="max-width:700px;margin:40px auto;padding:20px;">
+    <div class="card">
+      <div class="card-header" style="justify-content:space-between;">
+        <span id="modalTitle">Document Preview</span>
+        <button onclick="closeModal()" class="btn btn-outline btn-sm">✕ Close</button>
+      </div>
+      <div class="card-body">
+        <div id="modalMeta" style="margin-bottom:16px;font-size:0.72rem;color:var(--text-secondary);line-height:1.8;"></div>
+        <pre id="modalContent" style="background:rgba(0,10,20,0.8);border:1px solid var(--border);border-radius:8px;padding:16px;font-size:0.72rem;overflow-x:auto;max-height:400px;overflow-y:auto;white-space:pre-wrap;"></pre>
+      </div>
+    </div>
+  </div>
+</div>
 
-    <!-- PWA & LEAFLET MAP SCRIPTS -->
-    <script>
-        // =====================================================
-        // 1. PWA INSTALLATION PROMPT
-        // =====================================================
-        let deferredPrompt;
-        const installBtn = document.getElementById('installAppBtn');
+<script>
+// ── Google Maps ──
+const LOGIN_LAT  = {{ last_lat }};
+const LOGIN_LNG  = {{ last_lng }};
+const ZONE_LAT   = {{ safe_zone.lat }};
+const ZONE_LNG   = {{ safe_zone.lng }};
+const ZONE_RAD   = {{ safe_zone.radius_km }};
+const ZONE_CITY  = "{{ safe_zone.city }}";
+const ZONE_ON    = {{ "true" if safe_zone.enabled else "false" }};
 
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            if (installBtn) {
-                installBtn.style.display = 'inline-flex';
-            }
-        });
+function initMap() {
+  const loginPos  = { lat: LOGIN_LAT, lng: LOGIN_LNG };
+  const zonePos   = { lat: ZONE_LAT,  lng: ZONE_LNG  };
 
-        function triggerPWAInstall() {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        console.log('User installed CyberShield desktop app');
-                        installBtn.style.display = 'none';
-                    }
-                    deferredPrompt = null;
-                });
-            } else {
-                alert('CyberShield is ready for desktop installation! Click the Install icon (computer/arrow) in your browser address bar.');
-            }
-        }
+  const map = new google.maps.Map(document.getElementById("map-panel"), {
+    center: loginPos,
+    zoom: 7,
+    mapTypeId: "roadmap",
+    styles: [
+      { elementType:"geometry", stylers:[{color:"#0a0f1e"}] },
+      { elementType:"labels.text.fill", stylers:[{color:"#8899bb"}] },
+      { elementType:"labels.text.stroke", stylers:[{color:"#05070f"}] },
+      { featureType:"administrative", elementType:"geometry", stylers:[{color:"#1a2545"}] },
+      { featureType:"road", elementType:"geometry", stylers:[{color:"#1a2545"}] },
+      { featureType:"road.highway", elementType:"geometry", stylers:[{color:"#1e3a5f"}] },
+      { featureType:"water", elementType:"geometry", stylers:[{color:"#0d1a2e"}] },
+      { featureType:"poi", stylers:[{visibility:"off"}] },
+      { featureType:"transit", stylers:[{visibility:"off"}] }
+    ]
+  });
 
-        // Register Service Worker
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/static/sw.js')
-                .then(() => console.log('CyberShield Service Worker Registered'))
-                .catch((err) => console.log('Service Worker Error:', err));
-        }
+  // Safe zone circle
+  if (ZONE_ON) {
+    new google.maps.Circle({
+      map,
+      center: zonePos,
+      radius: ZONE_RAD * 1000,
+      fillColor: "#00ff88",
+      fillOpacity: 0.07,
+      strokeColor: "#00ff88",
+      strokeOpacity: 0.6,
+      strokeWeight: 2
+    });
+    new google.maps.Marker({
+      position: zonePos, map,
+      icon: { path: google.maps.SymbolPath.CIRCLE, scale: 6, fillColor:"#00ff88", fillOpacity:0.8, strokeColor:"#00ff88", strokeWeight:2 },
+      title: "Safe Zone Center: " + ZONE_CITY
+    });
+  }
 
-        // =====================================================
-        // 2. NOTIFICATION DRAWER TOGGLE
-        // =====================================================
-        function toggleNotifications() {
-            const dropdown = document.getElementById('notifDropdown');
-            dropdown.classList.toggle('show');
-        }
+  // User login marker
+  const loginMarker = new google.maps.Marker({
+    position: loginPos, map,
+    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 9, fillColor:"#00c8ff", fillOpacity:0.9, strokeColor:"#00c8ff", strokeWeight:3 },
+    title: "Your Last Login"
+  });
 
-        document.addEventListener('click', (e) => {
-            const wrapper = document.querySelector('.notif-wrapper');
-            if (wrapper && !wrapper.contains(e.target)) {
-                document.getElementById('notifDropdown').classList.remove('show');
-            }
-        });
+  const infoWin = new google.maps.InfoWindow({
+    content: `<div style="background:#0a0f1e;color:#e2e8f7;padding:10px;border-radius:8px;font-family:monospace;font-size:12px;">
+      <strong style="color:#00c8ff;">🔵 Your Last Login</strong><br>
+      <span>📍 {{ last_location }}</span><br>
+      <span style="color:#8899bb;">{{ user.last_login_time or "Now" }}</span>
+    </div>`
+  });
+  loginMarker.addListener("click", () => infoWin.open(map, loginMarker));
 
-        // =====================================================
-        // 3. INTERACTIVE LEAFLET SOC MAP
-        // =====================================================
-        const cityCoords = {
-            'jammu': [32.7266, 74.8570],
-            'srinagar': [34.0837, 74.7973],
-            'delhi': [28.6139, 77.2090],
-            'mumbai': [19.0760, 72.8777],
-            'bangalore': [12.9716, 77.5946],
-            'bengaluru': [12.9716, 77.5946],
-            'london': [51.5074, -0.1278],
-            'new york': [40.7128, -74.0060]
-        };
+  // Check distance and update zone status bar
+  const dist = haversineKm(LOGIN_LAT, LOGIN_LNG, ZONE_LAT, ZONE_LNG);
+  const inZone = !ZONE_ON || dist <= ZONE_RAD;
+  const bar  = document.getElementById("zone-bar");
+  const badge = document.getElementById("map-zone-badge");
+  const statVal = document.getElementById("zone-status-val");
+  const statSub = document.getElementById("zone-dist-sub");
 
-        function getCoords(cityName, defaultCoord) {
-            if (!cityName) return defaultCoord;
-            const lower = cityName.toLowerCase();
-            for (let k in cityCoords) {
-                if (lower.includes(k)) return cityCoords[k];
-            }
-            return defaultCoord;
-        }
+  if (inZone) {
+    bar.className = "zone-status-bar zone-safe";
+    bar.textContent = "✅ Within Safe Zone — " + ZONE_CITY + " (" + dist.toFixed(1) + " km from center)";
+    badge.className = "badge badge-normal"; badge.textContent = "Safe Zone ✓";
+    statVal.textContent = "In Zone"; statVal.style.color = "var(--green)";
+  } else {
+    bar.className = "zone-status-bar zone-danger";
+    bar.textContent = "🚨 OUTSIDE Safe Zone — " + dist.toFixed(1) + " km from " + ZONE_CITY;
+    badge.className = "badge badge-critical"; badge.textContent = "⚠ Outside Zone";
+    statVal.textContent = "Outside"; statVal.style.color = "var(--red)";
+    // Draw alert circle around login marker
+    new google.maps.Circle({ map, center: loginPos, radius: 30000, fillColor:"#ff3366", fillOpacity:0.1, strokeColor:"#ff3366", strokeOpacity:0.8, strokeWeight:2 });
+  }
+  statSub.textContent = ZONE_CITY + " · " + dist.toFixed(1) + " km · " + ZONE_RAD + " km radius";
+}
 
-        const baselineCity = "{{ usual_location }}";
-        const currentCity = "{{ user.last_login_location if user.last_login_location else usual_location }}";
+function haversineKm(lat1,lng1,lat2,lng2) {
+  const R=6371, dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
 
-        const baseCoord = getCoords(baselineCity, [32.7266, 74.8570]);
-        const currCoord = getCoords(currentCity, [32.7266, 74.8570]);
+// ── Notification Panel ──
+function toggleNotif() {
+  document.getElementById("notifPanel").classList.toggle("open");
+}
+document.addEventListener("click", e => {
+  if (!e.target.closest(".notif-bell") && !e.target.closest(".notif-panel")) {
+    document.getElementById("notifPanel").classList.remove("open");
+  }
+});
 
-        // Initialize Map centered on baseline
-        const map = L.map('socMap').setView(currCoord, 5);
-
-        // CartoDB Dark-Matter Tiles
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-            subdomains: 'abcd',
-            maxZoom: 19
-        }).addTo(map);
-
-        // Baseline Pin (Green)
-        const greenIcon = L.circleMarker(baseCoord, {
-            radius: 8,
-            fillColor: '#10b981',
-            color: '#ffffff',
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.9
-        }).addTo(map);
-        greenIcon.bindPopup(`<strong>🟢 Baseline Geofence:</strong><br>${baselineCity}`).openPopup();
-
-        // Check for mismatch
-        const isAnomaly = !currentCity.toLowerCase().includes(baselineCity.toLowerCase()) && !baselineCity.toLowerCase().includes(currentCity.toLowerCase());
-
-        if (isAnomaly) {
-            // Detected Pin (Pulsing Red)
-            const redIcon = L.circleMarker(currCoord, {
-                radius: 10,
-                fillColor: '#ef4444',
-                color: '#ffffff',
-                weight: 2.5,
-                opacity: 1,
-                fillOpacity: 0.95
-            }).addTo(map);
-            redIcon.bindPopup(`<strong>🔴 Detected Anomaly:</strong><br>${currentCity}`).openPopup();
-
-            // Connecting line
-            const line = L.polyline([baseCoord, currCoord], {
-                color: '#ef4444',
-                weight: 2.5,
-                dashArray: '6, 8',
-                opacity: 0.85
-            }).addTo(map);
-
-            map.fitBounds(line.getBounds(), { padding: [40, 40] });
-
-            const badge = document.getElementById('geoStatusBadge');
-            if (badge) {
-                badge.className = 'status critical';
-                badge.innerHTML = '🚨 Geo-Anomaly: Foreign Access Location';
-            }
-        }
-
-        // =====================================================
-        // 4. DOCUMENT VAULT FILTERING, SEARCH & MODAL PREVIEW
-        // =====================================================
-        let currentDocFilter = 'all';
-
-        function filterDocs(category, btnElement) {
-            currentDocFilter = category;
-            
-            // Update active tab buttons
-            document.querySelectorAll('.doc-tab-btn').forEach(btn => btn.classList.remove('active'));
-            if (btnElement) {
-                btnElement.classList.add('active');
-            }
-
-            applyDocFilters();
-        }
-
-        function searchDocs() {
-            applyDocFilters();
-        }
-
-        function applyDocFilters() {
-            const query = (document.getElementById('docSearchInput').value || '').toLowerCase().trim();
-            const cards = document.querySelectorAll('#docGrid .doc-card');
-            let visibleCount = 0;
-
-            cards.forEach(card => {
-                const cat = card.getAttribute('data-category');
-                const name = (card.getAttribute('data-name') || '').toLowerCase();
-                const title = (card.getAttribute('data-title') || '').toLowerCase();
-                const desc = (card.querySelector('.doc-desc')?.textContent || '').toLowerCase();
-
-                const matchesCategory = (currentDocFilter === 'all') || (cat === currentDocFilter);
-                const matchesQuery = !query || name.includes(query) || title.includes(query) || desc.includes(query);
-
-                if (matchesCategory && matchesQuery) {
-                    card.style.display = 'flex';
-                    visibleCount++;
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-
-            const noDocs = document.getElementById('noDocsFound');
-            if (noDocs) {
-                noDocs.style.display = visibleCount === 0 ? 'block' : 'none';
-            }
-        }
-
-        async function openDocPreview(filename) {
-            const modal = document.getElementById('docPreviewModal');
-            const titleEl = document.getElementById('modalTitle');
-            const iconEl = document.getElementById('modalIcon');
-            const filenameEl = document.getElementById('modalFilename');
-            const classEl = document.getElementById('modalClassification');
-            const dateEl = document.getElementById('modalDate');
-            const issuerEl = document.getElementById('modalIssuer');
-            const contentEl = document.getElementById('modalContent');
-            const watermarkEl = document.getElementById('modalWatermark');
-            const downloadLink = document.getElementById('modalDownloadLink');
-
-            // Default loading state
-            titleEl.textContent = "Loading Document...";
-            filenameEl.textContent = filename;
-            contentEl.textContent = "Retrieving certified document from Zero-Trust vault...";
-            downloadLink.href = `/download/file/${encodeURIComponent(filename)}`;
-
-            modal.classList.add('open');
-            document.body.style.overflow = 'hidden';
-
-            try {
-                const res = await fetch(`/api/document/preview/${encodeURIComponent(filename)}`);
-                const data = await res.json();
-
-                if (data.success) {
-                    titleEl.textContent = data.title;
-                    filenameEl.textContent = data.filename;
-                    classEl.textContent = data.classification;
-                    dateEl.textContent = data.date;
-                    issuerEl.textContent = data.issuer;
-                    contentEl.textContent = data.content;
-
-                    iconEl.textContent = "📄";
-                    watermarkEl.textContent = "OFFICIAL RECORD";
-                    watermarkEl.style.color = "rgba(255, 255, 255, 0.03)";
-                    classEl.style.color = "#10b981";
-                    downloadLink.className = "btn btn-cyan btn-sm";
-                    downloadLink.innerHTML = "⬇️ Download Document";
-                    downloadLink.onclick = null;
-                } else {
-                    contentEl.textContent = "Error loading document: " + (data.error || "Access Denied");
-                }
-            } catch (err) {
-                contentEl.textContent = "Network error loading preview: " + err.message;
-            }
-        }
-
-        function closeDocModal() {
-            const modal = document.getElementById('docPreviewModal');
-            if (modal) {
-                modal.classList.remove('open');
-            }
-            document.body.style.overflow = '';
-        }
-
-        function handleModalOverlayClick(e) {
-            if (e.target.id === 'docPreviewModal') {
-                closeDocModal();
-            }
-        }
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                closeDocModal();
-            }
-        });
-    </script>
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+// ── Document Preview ──
+function previewDoc(fname) {
+  fetch("/api/document/preview/" + fname)
+    .then(r => r.json())
+    .then(d => {
+      document.getElementById("modalTitle").textContent = d.title;
+      document.getElementById("modalMeta").innerHTML =
+        `<strong>Category:</strong> ${d.category} &nbsp;|&nbsp; <strong>Issuer:</strong> ${d.issuer} &nbsp;|&nbsp; <strong>Class:</strong> ${d.classification}` +
+        (d.is_honeytoken ? ' &nbsp;<span class="badge badge-critical">🍯 HONEYTOKEN</span>' : '');
+      document.getElementById("modalContent").textContent = d.content;
+      document.getElementById("docModal").style.display = "block";
+    });
+}
+function closeModal() { document.getElementById("docModal").style.display = "none"; }
+document.getElementById("docModal").addEventListener("click", function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap"></script>
 </body>
 </html>

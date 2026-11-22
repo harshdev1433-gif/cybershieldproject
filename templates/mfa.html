@@ -1,62 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CyberShield | Zero-Trust Step-Up Verification</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CyberShield - MFA Verification</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/cybershield.css">
 </head>
 <body>
-    <div class="login-wrapper">
-        <div class="login-container" style="max-width: 480px;">
-            <div class="login-brand">
-                <span class="logo-icon" style="filter: drop-shadow(0 0 12px rgba(245, 158, 11, 0.6));">⚠️</span>
-                <h1>Zero-Trust Verification</h1>
-                <p>Step-Up Authentication Required</p>
-            </div>
-
-            <div class="message-alert" style="background: rgba(245, 158, 11, 0.15); border-color: rgba(245, 158, 11, 0.5); color: #fde68a;">
-                <strong>Adaptive Policy Enforced:</strong><br>
-                Your Trust Score has fallen to <strong>{{ trust_score }}/100</strong> (Security Threshold: {{ threshold }}).
-                A one-time passcode has been dispatched to: <strong style="color: var(--color-cyan);">{{ user_email }}</strong>.
-            </div>
-
-            {% if error %}
-                <div class="message-alert">
-                    ❌ {{ error }}
-                </div>
-            {% endif %}
-
-            <form method="POST">
-                <div class="form-group">
-                    <label for="otp">Enter 6-Digit One-Time Passcode (OTP)</label>
-                    <input
-                        type="text"
-                        id="otp"
-                        name="otp"
-                        placeholder="••••••"
-                        maxlength="6"
-                        required
-                        autofocus
-                        style="text-align: center; font-size: 1.5rem; letter-spacing: 6px; font-weight: 700;"
-                    >
-                </div>
-
-                <button type="submit" class="btn btn-warning" style="width: 100%; padding: 13px; font-size: 1rem;">
-                    🔐 Confirm Identity & Restore Access
-                </button>
-            </form>
-
-            <div class="login-hints" style="text-align: center;">
-                <p><strong>Simulated Authenticator Token:</strong></p>
-                <p style="font-size: 0.95rem;">Use test OTP: <span class="hint-badge" style="font-size: 1.1rem; padding: 4px 10px; color: var(--color-cyan);">{{ demo_otp }}</span></p>
-                <div style="margin-top: 18px;">
-                    <a href="{{ url_for('logout') }}" style="color: var(--text-muted); font-size: 0.85rem; text-decoration: underline;">
-                        Cancel and Log Out
-                    </a>
-                </div>
-            </div>
-        </div>
+<div class="auth-wrap">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <span class="shield" style="font-size:2.5rem;">&#128272;</span>
+      <h1>STEP-UP MFA</h1>
+      <p>ZERO-TRUST VERIFICATION REQUIRED</p>
     </div>
+    <div class="card mb-3" style="border-color:rgba(255,204,0,0.3);background:rgba(255,204,0,0.05);">
+      <div class="card-body" style="text-align:center;padding:16px;">
+        <div style="color:#ffcc00;font-size:0.78rem;font-weight:700;">&#9888; TRUST SCORE BELOW THRESHOLD</div>
+        <div style="margin-top:8px;display:flex;justify-content:center;align-items:center;gap:16px;">
+          <div>
+            <div style="font-size:1.6rem;font-weight:800;color:#ff3366;">{{ trust_score }}</div>
+            <div style="font-size:0.65rem;color:#8899bb;">TRUST SCORE</div>
+          </div>
+          <div style="color:#445577;">/</div>
+          <div>
+            <div style="font-size:1.6rem;font-weight:800;color:#ffcc00;">{{ threshold }}</div>
+            <div style="font-size:0.65rem;color:#8899bb;">THRESHOLD</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-bottom:20px;font-size:0.78rem;color:#8899bb;">
+      A 6-digit OTP has been dispatched to<br>
+      <strong style="color:#00c8ff;">{{ user_email }}</strong>
+    </div>
+    {% if error %}<div class="alert alert-danger">&#128680; {{ error }}</div>{% endif %}
+    <form method="POST">
+      <div class="otp-boxes" id="otpBoxes">
+        {% for i in range(6) %}
+        <input class="otp-box" type="text" maxlength="1" pattern="[0-9]" inputmode="numeric" autocomplete="off">
+        {% endfor %}
+      </div>
+      <input type="hidden" name="otp" id="otpHidden">
+      <button type="submit" class="btn btn-primary w-full" style="justify-content:center;padding:13px;">&#10003; VERIFY IDENTITY</button>
+    </form>
+    {% if demo_otp %}
+    <div class="alert alert-info mt-2" style="text-align:center;">
+      &#129514; <strong>Demo Token:</strong> <span style="letter-spacing:0.3em;font-size:1.1rem;">{{ demo_otp }}</span>
+    </div>
+    {% endif %}
+    <hr class="divider">
+    <a href="/logout" class="btn btn-outline w-full" style="justify-content:center;margin-top:8px;">&larr; Back to Login</a>
+  </div>
+</div>
+<script>
+var boxes=document.querySelectorAll(".otp-box"),hidden=document.getElementById("otpHidden");
+function upd(){hidden.value=Array.from(boxes).map(function(b){return b.value;}).join("");}
+boxes.forEach(function(box,i){
+  box.addEventListener("input",function(){this.value=this.value.replace(/[^0-9]/g,"");upd();if(this.value&&i<boxes.length-1)boxes[i+1].focus();});
+  box.addEventListener("keydown",function(e){if(e.key==="Backspace"&&!this.value&&i>0)boxes[i-1].focus();});
+});
+boxes[0].focus();
+</script>
 </body>
 </html>

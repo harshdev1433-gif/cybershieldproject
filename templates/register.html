@@ -1,115 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CyberShield | Register New Identity</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CyberShield - Register</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/cybershield.css">
 </head>
 <body>
-    <div class="login-wrapper" style="padding: 40px 16px;">
-        <div class="login-container" style="max-width: 520px;">
-            <div class="login-brand">
-                <span class="logo-icon">🛡️</span>
-                <h1>Register Identity</h1>
-                <p>Create your Zero-Trust Monitored Account</p>
-            </div>
-
-            {% if message %}
-                <div class="message-alert">
-                    ⚠️ {{ message }}
-                </div>
-            {% endif %}
-
-            <form method="POST">
-                <div class="form-group">
-                    <label for="username">Username *</label>
-                    <input
-                        type="text"
-                        id="username"
-                        name="username"
-                        placeholder="Choose a unique username"
-                        required
-                        autocomplete="username"
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label for="email">Gmail / Email Address *</label>
-                    <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        placeholder="e.g. yourname@gmail.com"
-                        required
-                        autocomplete="email"
-                    >
-                    <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">
-                        ✉️ Real-time 6-digit OTP verification codes will be delivered to this address.
-                    </small>
-                </div>
-
-                <div class="form-group">
-                    <label for="phone">Mobile Number</label>
-                    <input
-                        type="tel"
-                        id="phone"
-                        name="phone"
-                        placeholder="+91 98765 43210"
-                        autocomplete="tel"
-                    >
-                </div>
-
-                <div class="form-group">
-                    <label for="baseline_location">Baseline Home City / Location *</label>
-                    <input
-                        type="text"
-                        id="baseline_location"
-                        name="baseline_location"
-                        placeholder="e.g. Jammu, Delhi, Mumbai, London"
-                        value="Jammu"
-                        required
-                    >
-                    <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">
-                        📍 Used as your geographic baseline. Logins from other locations will trigger anomaly detection.
-                    </small>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                    <div class="form-group">
-                        <label for="password">Password *</label>
-                        <input
-                            type="password"
-                            id="password"
-                            name="password"
-                            placeholder="••••••••"
-                            required
-                            autocomplete="new-password"
-                        >
-                    </div>
-
-                    <div class="form-group">
-                        <label for="confirm_password">Confirm Password *</label>
-                        <input
-                            type="password"
-                            id="confirm_password"
-                            name="confirm_password"
-                            placeholder="••••••••"
-                            required
-                            autocomplete="new-password"
-                        >
-                    </div>
-                </div>
-
-                <button type="submit" class="btn btn-cyan" style="width: 100%; padding: 13px; font-size: 1rem; margin-top: 10px;">
-                    ✨ Create Protected Account
-                </button>
-            </form>
-
-            <div class="login-hints" style="text-align: center; margin-top: 20px;">
-                <p>Already have an account? <a href="{{ url_for('login') }}" style="color: var(--color-cyan); font-weight: 600;">Sign in here</a></p>
-            </div>
-        </div>
+<div class="auth-wrap">
+  <div class="auth-box" style="max-width:500px;">
+    <div class="auth-logo">
+      <span class="shield">&#127697;</span>
+      <h1>CYBERSHIELD</h1>
+      <p>REGISTER NEW IDENTITY &middot; ZERO-TRUST ENROLLMENT</p>
     </div>
+    {% if message %}<div class="alert alert-danger">&#128680; {{ message }}</div>{% endif %}
+    <form method="POST" action="/register">
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input type="text" name="username" class="form-control" placeholder="johndoe" required minlength="3">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" name="email" class="form-control" placeholder="user@example.com" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input type="text" name="phone" class="form-control" placeholder="+91-9876543210">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Baseline Location (Home City)</label>
+        <input type="text" name="baseline_location" id="baseline_location" class="form-control" placeholder="Detecting..." value="Jammu">
+        <small id="geo-status" style="color:#445577;font-size:0.68rem;margin-top:4px;display:block;">&#128225; Auto-detecting your location...</small>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" name="password" class="form-control" placeholder="Min 6 characters" required minlength="6">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm Password</label>
+        <input type="password" name="confirm_password" class="form-control" placeholder="Repeat password" required>
+      </div>
+      <input type="hidden" name="real_lat" id="real_lat" value="32.7266">
+      <input type="hidden" name="real_lng" id="real_lng" value="74.8570">
+      <button type="submit" class="btn btn-primary w-full" style="justify-content:center;padding:13px;margin-top:8px;">&#127697; CREATE SECURE ACCOUNT</button>
+    </form>
+    <hr class="divider">
+    <div class="text-center mt-2">
+      <span style="color:#445577;font-size:0.72rem;">Already enrolled?</span>
+      <a href="/" style="color:#00c8ff;font-size:0.72rem;margin-left:8px;">Sign In &rarr;</a>
+    </div>
+  </div>
+</div>
+<script src="/static/js/geolocation.js"></script>
 </body>
 </html>

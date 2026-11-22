@@ -98,7 +98,12 @@ def create_tables():
         ("auto_quarantine_enabled", "1", "Auto-lock account if maximum failed login attempts are reached"),
         ("max_failed_attempts", "3", "Maximum consecutive failed authentication attempts permitted"),
         ("canary_trap_active", "1", "Arm honeytoken decoy files in enterprise workspace"),
-        ("threat_intel_enabled", "1", "Block and score known anonymous proxies and Tor exit nodes")
+        ("threat_intel_enabled", "1", "Block and score known anonymous proxies and Tor exit nodes"),
+        ("safe_zone_lat", "32.7266", "Safe zone center latitude (default: Jammu, India)"),
+        ("safe_zone_lng", "74.8570", "Safe zone center longitude (default: Jammu, India)"),
+        ("safe_zone_radius_km", "100", "Safe zone radius in kilometers — logins outside trigger elevated risk"),
+        ("safe_zone_city", "Jammu", "Safe zone center city name for display"),
+        ("safe_zone_enabled", "1", "Enable safe geographical zone enforcement")
     ]
     for k, v, desc in default_policies:
         cursor.execute("INSERT OR IGNORE INTO security_policies (key, value, description) VALUES (?, ?, ?)", (k, v, desc))
@@ -132,6 +137,10 @@ def create_tables():
         cursor.execute("ALTER TABLE users ADD COLUMN last_login_time TEXT")
     if "last_login_location" not in user_cols:
         cursor.execute("ALTER TABLE users ADD COLUMN last_login_location TEXT")
+    if "last_login_lat" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN last_login_lat REAL")
+    if "last_login_lng" not in user_cols:
+        cursor.execute("ALTER TABLE users ADD COLUMN last_login_lng REAL")
 
     # DEMO USERS (Create if not exist, with hashed passwords)
     cursor.execute("SELECT id FROM users WHERE username = 'student'")
@@ -224,17 +233,50 @@ def get_user_by_username(username):
     return None
 
 
-def update_user_login_telemetry(username, location=None, login_time=None):
+def update_user_login_telemetry(username, location=None, login_time=None, lat=None, lng=None):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
         UPDATE users
         SET last_login_location = COALESCE(?, last_login_location),
-            last_login_time = COALESCE(?, last_login_time)
+            last_login_time = COALESCE(?, last_login_time),
+            last_login_lat = COALESCE(?, last_login_lat),
+            last_login_lng = COALESCE(?, last_login_lng)
         WHERE username = ?
-    """, (location, login_time, username))
+    """, (location, login_time, lat, lng, username))
     conn.commit()
     conn.close()
+
+
+def update_user_coordinates(username, lat, lng):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET last_login_lat = ?, last_login_lng = ? WHERE username = ?",
+        (lat, lng, username)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_safe_zone():
+    """Returns the current safe zone configuration as a dict."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT key, value FROM security_policies WHERE key IN "
+        "('safe_zone_lat','safe_zone_lng','safe_zone_radius_km','safe_zone_city','safe_zone_enabled')"
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    cfg = {r["key"]: r["value"] for r in rows}
+    return {
+        "lat": float(cfg.get("safe_zone_lat", 32.7266)),
+        "lng": float(cfg.get("safe_zone_lng", 74.8570)),
+        "radius_km": float(cfg.get("safe_zone_radius_km", 100)),
+        "city": cfg.get("safe_zone_city", "Jammu"),
+        "enabled": cfg.get("safe_zone_enabled", "1") == "1"
+    }
 
 
 # =========================================================

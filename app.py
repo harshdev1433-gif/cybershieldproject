@@ -3,6 +3,7 @@ from datetime import datetime
 import csv
 import io
 import random
+import math
 
 from database import (
     create_tables,
@@ -17,6 +18,8 @@ from database import (
     get_user_by_username,
     register_user,
     update_user_login_telemetry,
+    update_user_coordinates,
+    get_safe_zone,
     get_behaviour_profile,
     get_user_activities,
     get_all_activities,
@@ -104,6 +107,14 @@ def login():
         if "," in client_ip:
             client_ip = client_ip.split(",")[0].strip()
 
+        # Capture GPS coordinates sent by browser geolocation JS
+        try:
+            real_lat = float(request.form.get("real_lat", "") or 32.7266)
+            real_lng = float(request.form.get("real_lng", "") or 74.8570)
+        except (ValueError, TypeError):
+            real_lat = 32.7266
+            real_lng = 74.8570
+
         user, status_msg = verify_user(username, password)
 
         if user:
@@ -122,9 +133,12 @@ def login():
                 except Exception:
                     hours_diff = 1.0
 
-            # Record real login telemetry in database
+            # Record real login telemetry (including coordinates) in database
             now_full_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            update_user_login_telemetry(user["username"], location=real_location, login_time=now_full_str)
+            update_user_login_telemetry(
+                user["username"], location=real_location,
+                login_time=now_full_str, lat=real_lat, lng=real_lng
+            )
 
             # Telemetry correlation with user's baseline behaviour
             profile = get_behaviour_profile(user["username"])
@@ -206,6 +220,7 @@ def dashboard(username):
         normal_file_access = "Low"
 
     notifications = get_user_notifications(username, limit=10)
+    safe_zone = get_safe_zone()
 
     return render_template(
         "dashboard.html",
@@ -217,7 +232,11 @@ def dashboard(username):
         usual_device=usual_device,
         usual_location=usual_location,
         normal_file_access=normal_file_access,
-        notifications=notifications
+        notifications=notifications,
+        safe_zone=safe_zone,
+        last_lat=user_data.get("last_login_lat") or safe_zone["lat"],
+        last_lng=user_data.get("last_login_lng") or safe_zone["lng"],
+        last_location=user_data.get("last_login_location") or usual_location
     )
 
 
@@ -982,6 +1001,115 @@ def admin_incident_report():
 
 
 
+
+
+
+
+# =========================================================
+# GEOLOCATION & SAFE ZONE API
+# =========================================================
+
+def _haversine_km(lat1, lng1, lat2, lng2):
+    """Return great-circle distance in km between two lat/lng points."""
+    R = 6371.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lng2 - lng1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+@app.route("/api/user/location")
+def api_user_location():
+    username = session.get("username")
+    if not username:
+        return jsonify({"error": "Unauthorized"}), 401
+    user = get_user_by_username(username) or {}
+    safe_zone = get_safe_zone()
+    lat = user.get("last_login_lat") or safe_zone["lat"]
+    lng = user.get("last_login_lng") or safe_zone["lng"]
+    dist_km = _haversine_km(lat, lng, safe_zone["lat"], safe_zone["lng"])
+    return jsonify({
+        "lat": lat, "lng": lng,
+        "location": user.get("last_login_location") or "Unknown",
+        "last_login_time": user.get("last_login_time", "N/A"),
+        "safe_zone": safe_zone,
+        "distance_km": round(dist_km, 1),
+        "in_safe_zone": dist_km <= safe_zone["radius_km"]
+    })
+
+
+@app.route("/api/admin/all-locations")
+def api_all_user_locations():
+    if session.get("role") != "admin":
+        return jsonify({"error": "Unauthorized"}), 403
+    users = get_all_users()
+    safe_zone = get_safe_zone()
+    result = []
+    for u in users:
+        lat = u.get("last_login_lat") or safe_zone["lat"]
+        lng = u.get("last_login_lng") or safe_zone["lng"]
+        dist_km = _haversine_km(lat, lng, safe_zone["lat"], safe_zone["lng"])
+        result.append({
+            "username": u["username"], "role": u["role"],
+            "trust_score": u["trust_score"], "is_locked": u["is_locked"],
+            "lat": lat, "lng": lng,
+            "location": u.get("last_login_location") or "Unknown",
+            "last_login_time": u.get("last_login_time") or "Never",
+            "distance_km": round(dist_km, 1),
+            "in_safe_zone": dist_km <= safe_zone["radius_km"]
+        })
+    return jsonify({"users": result, "safe_zone": safe_zone})
+
+
+@app.route("/api/admin/safe-zone/update", methods=["POST"])
+def api_safe_zone_update():
+    if session.get("role") != "admin":
+        return jsonify({"error": "Unauthorized"}), 403
+    data = request.get_json() or {}
+    allowed = {"safe_zone_lat", "safe_zone_lng", "safe_zone_radius_km", "safe_zone_city", "safe_zone_enabled"}
+    updated = []
+    for key in allowed:
+        if key in data:
+            update_policy(key, str(data[key]))
+            updated.append(key)
+    log_activity(
+        username=session.get("username", "admin"),
+        activity=f"Safe Zone Updated: {', '.join(updated)}",
+        risk_score=0, threat_level="Normal"
+    )
+    return jsonify({"success": True, "updated": updated})
+
+
+@app.route("/api/check-geofence", methods=["POST"])
+def api_check_geofence():
+    username = session.get("username")
+    if not username:
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json() or {}
+    try:
+        lat = float(data["lat"])
+        lng = float(data["lng"])
+    except (KeyError, ValueError, TypeError):
+        return jsonify({"error": "lat and lng required"}), 400
+    safe_zone = get_safe_zone()
+    dist_km = _haversine_km(lat, lng, safe_zone["lat"], safe_zone["lng"])
+    in_zone = not safe_zone["enabled"] or dist_km <= safe_zone["radius_km"]
+    update_user_coordinates(username, lat, lng)
+    if safe_zone["enabled"] and not in_zone:
+        log_activity(
+            username=username,
+            activity=f"⚠️ Login Outside Safe Zone: {round(dist_km, 1)} km from {safe_zone['city']}",
+            risk_score=55, threat_level="Suspicious"
+        )
+        update_trust_score(username, 55)
+        add_notification(
+            username=username,
+            title="⚠️ Outside Safe Zone Detected",
+            message=f"Login detected {round(dist_km, 1)} km from safe zone center ({safe_zone['city']}). Risk elevated.",
+            severity="warning"
+        )
+    return jsonify({"in_safe_zone": in_zone, "distance_km": round(dist_km, 1), "safe_zone": safe_zone})
 
 
 # =========================================================
